@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { BookOpen, FolderGit2, GraduationCap, LayoutGrid, Monitor, School, Users } from 'lucide-react';
+import { BarChart3, BookOpen, FolderGit2, GraduationCap, LayoutGrid, Monitor, School, Users } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/sidebar';
 import { index as classesIndex } from '@/routes/admin/classes';
 import { index as computersIndex } from '@/routes/admin/computers';
+import { index as reportsIndex } from '@/routes/admin/reports';
 import { index as schoolsIndex } from '@/routes/admin/schools';
 import { index as studentsIndex } from '@/routes/admin/students';
 import { dashboard } from '@/routes';
@@ -45,6 +46,11 @@ const mainNavItems: NavItem[] = [
         title: 'Computers',
         href: computersIndex(),
         icon: Monitor,
+    },
+    {
+        title: 'M&E Reports',
+        href: reportsIndex(),
+        icon: BarChart3,
     },
 ];
 

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\ComputerController;
+use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SchoolClassController;
 use App\Http\Controllers\Admin\SchoolController;
 use App\Http\Controllers\Admin\StudentController;
@@ -17,6 +18,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('students', StudentController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::resource('computers', ComputerController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::post('computers/{computer}/issue-token', [ComputerController::class, 'issueToken'])->name('computers.issue-token');
+        Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
     });
 });
 

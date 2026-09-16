@@ -37,6 +37,24 @@ export type Student = {
     school_class: ClassOption | null;
 };
 
+export type ClassWithSchool = ClassOption & {
+    school: SchoolOption | null;
+};
+
+export type NoUsageStudent = {
+    admission_number: string;
+    full_name: string;
+};
+
+export type ClassReport = {
+    class: { id: number; name: string; school_name: string | null };
+    total_students: number;
+    active_students: number;
+    average_duration_minutes: number | null;
+    total_sessions: number;
+    no_usage_students: NoUsageStudent[];
+};
+
 export type Computer = {
     id: number;
     school_id: number;
