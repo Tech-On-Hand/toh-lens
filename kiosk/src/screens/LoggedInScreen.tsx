@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { SyncStatusBadge } from "../components/SyncStatusBadge";
 import { commandErrorMessage, recordLogout } from "../lib/commands";
+import { useIdleTimeout } from "../lib/useIdleTimeout";
 import type { LoginSessionRecord } from "../types";
 
 interface LoggedInScreenProps {
@@ -8,11 +9,17 @@ interface LoggedInScreenProps {
   onLogout: () => void;
 }
 
+// A typical lesson period is long enough that these defaults shouldn't
+// interrupt real use, while still closing forgotten sessions well before
+// the next student sits down.
+const IDLE_TIMEOUT_MS = 20 * 60 * 1000;
+const IDLE_WARNING_MS = 60 * 1000;
+
 export function LoggedInScreen({ session, onLogout }: LoggedInScreenProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     setIsLoggingOut(true);
     setError(null);
 
@@ -23,7 +30,13 @@ export function LoggedInScreen({ session, onLogout }: LoggedInScreenProps) {
       setError(commandErrorMessage(err));
       setIsLoggingOut(false);
     }
-  };
+  }, [session.session_uuid, onLogout]);
+
+  const { isWarning, secondsRemaining } = useIdleTimeout({
+    idleMs: IDLE_TIMEOUT_MS,
+    warningMs: IDLE_WARNING_MS,
+    onIdle: handleLogout,
+  });
 
   return (
     <div className="screen loggedin-screen">
@@ -37,6 +50,12 @@ export function LoggedInScreen({ session, onLogout }: LoggedInScreenProps) {
       <button type="button" className="logout-button" onClick={handleLogout} disabled={isLoggingOut}>
         {isLoggingOut ? "Logging out…" : "Log Out"}
       </button>
+
+      {isWarning && !isLoggingOut && (
+        <div className="idle-warning" role="alert">
+          Logging out in {secondsRemaining}s due to inactivity — tap anywhere to stay logged in.
+        </div>
+      )}
     </div>
   );
 }
