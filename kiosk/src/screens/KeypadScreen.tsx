@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { NumericKeypad } from "../components/NumericKeypad";
+import { RosterFreshnessNote } from "../components/RosterFreshnessNote";
 import { SyncStatusBadge } from "../components/SyncStatusBadge";
 import { commandErrorMessage, recordLogin } from "../lib/commands";
 import type { LoginSessionRecord } from "../types";
@@ -44,6 +45,8 @@ export function KeypadScreen({ onLogin }: KeypadScreenProps) {
       <div className={`keypad-message ${error ? "keypad-message--error" : ""}`} aria-live="polite">
         {error ?? " "}
       </div>
+
+      <RosterFreshnessNote />
     </div>
   );
 }

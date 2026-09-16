@@ -1,8 +1,14 @@
-use crate::db::{config_repo, session_repo};
+use crate::db::{config_repo, roster_repo, session_repo};
 use crate::models::SyncResult;
 use crate::state::AppState;
+use chrono::Utc;
 
 const SYNC_BATCH_LIMIT: i64 = 200;
+
+/// SRS Risk #5: without this, a newly enrolled student never validates at
+/// the kiosk until someone manually redoes Setup. Piggybacks on the same
+/// periodic tick as session sync rather than running on its own schedule.
+const ROSTER_REFRESH_INTERVAL_HOURS: i64 = 6;
 
 /// The single entry point for every sync trigger (the periodic background
 /// loop, the post-logout best-effort push, and the manual "Sync Now"
@@ -30,6 +36,8 @@ pub async fn try_sync(state: &AppState) -> SyncResult {
         let conn = state.db.lock().unwrap();
         let _ = config_repo::set_last_sync_attempt_at(&conn, &chrono::Utc::now().to_rfc3339());
     }
+
+    maybe_refresh_roster(state, &base_url, &token).await;
 
     let batch = {
         let conn = state.db.lock().unwrap();
@@ -70,5 +78,38 @@ pub async fn try_sync(state: &AppState) -> SyncResult {
             synced: 0,
             failed: attempted,
         },
+    }
+}
+
+/// Re-fetches the roster if it hasn't refreshed recently, so newly enrolled
+/// students eventually validate without staff needing to redo Setup.
+/// Failures are silent and simply retried on the next tick.
+async fn maybe_refresh_roster(state: &AppState, base_url: &str, token: &str) {
+    let (school_id, last_synced_at) = {
+        let conn = state.db.lock().unwrap();
+        match config_repo::get_config(&conn) {
+            Ok(Some(config)) => (config.school_id, config.last_roster_synced_at),
+            _ => return,
+        }
+    };
+
+    let is_stale = match last_synced_at
+        .as_deref()
+        .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+    {
+        Some(last) => Utc::now().signed_duration_since(last) > chrono::Duration::hours(ROSTER_REFRESH_INTERVAL_HOURS),
+        None => true,
+    };
+
+    if !is_stale {
+        return;
+    }
+
+    if let Ok(roster) = crate::api_client::fetch_roster(&state.http, base_url, token).await {
+        let now = Utc::now().to_rfc3339();
+        let mut conn = state.db.lock().unwrap();
+        if roster_repo::replace_roster(&mut conn, school_id, &roster.students).is_ok() {
+            let _ = config_repo::set_last_roster_synced_at(&conn, &now);
+        }
     }
 }

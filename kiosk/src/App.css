@@ -105,6 +105,16 @@ button {
   color: #c0392b;
 }
 
+.roster-freshness-note {
+  font-size: 0.8rem;
+  color: #8a8a8a;
+  max-width: 420px;
+}
+
+.roster-freshness-note--stale {
+  color: #b45309;
+}
+
 /* --- Setup screen --- */
 
 .setup-form {
