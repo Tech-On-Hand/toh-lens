@@ -1,0 +1,7 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors (root only — kiosk/backend have their own .gitignore rules)
+/.vscode/
+/.idea/

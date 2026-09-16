@@ -1,0 +1,39 @@
+flowchart TB
+    subgraph LAB["School Lab — On-Premise (per school)"]
+        direction TB
+        SC["Student Computer\n• Kiosk Gate app (Windows shell)\n• LanSchool Air Student agent\n• Local login log (SQLite/JSON)\n• Cached student roster"]
+        TC["Teacher Computer\n• LanSchool Air Teacher Console\n(signed in via school email SSO)"]
+    end
+
+    subgraph LSA["LanSchool Air — Third-Party Cloud"]
+        direction TB
+        LSAControl["Class/session management\nremote view, control, lock, message"]
+        LSAActivity["Per-computer activity logs\n(apps, time, session)"]
+    end
+
+    subgraph BACKEND["TOH Backend — Cloud (Supabase/Firebase)"]
+        direction TB
+        Roster["Roster store\nschools, classes, students, computers"]
+        Sessions["Login Session store\n(synced from kiosk gates)"]
+        Ingest["LanSchool export ingestion"]
+        Join["Join/ETL process\nmatch by computer_id + time window"]
+        Reports["M&E Reports\n(per class, per period)"]
+    end
+
+    subgraph MEAPP["M&E Reporting"]
+        Dashboard["TOH M&E dashboard / exports"]
+    end
+
+    TC <--> LSAControl
+    SC <--> LSAControl
+    SC -.background agent.-> LSAActivity
+
+    Roster -- "sync down\n(when online)" --> SC
+    SC -- "sync up login/logout events\n(when online)" --> Sessions
+
+    LSAActivity -- "export / API pull" --> Ingest
+
+    Sessions --> Join
+    Ingest --> Join
+    Join --> Reports
+    Reports --> Dashboard
