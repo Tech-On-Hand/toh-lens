@@ -46,4 +46,8 @@ export type Computer = {
     tokens_count: number;
     school: SchoolOption | null;
     school_class: ClassOption | null;
+    /** Most recent login_session synced from this computer, if any. */
+    last_session_synced_at: string | null;
+    /** When this computer's current token last authenticated a request. */
+    token_last_used_at: string | null;
 };

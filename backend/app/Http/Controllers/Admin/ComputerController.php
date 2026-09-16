@@ -15,12 +15,33 @@ class ComputerController extends Controller
 {
     public function index(): Response
     {
+        $computers = Computer::query()
+            ->with([
+                'school:id,name',
+                'schoolClass:id,name',
+                // Only the most recently issued token, to read its last_used_at
+                // — a live signal that this computer has actually reached the
+                // backend, independent of whether any session synced.
+                'tokens' => fn ($query) => $query->latest('id')->limit(1),
+            ])
+            ->withCount('tokens')
+            ->withMax('loginSessions', 'created_at')
+            ->orderBy('name')
+            ->get();
+
         return Inertia::render('admin/computers/index', [
-            'computers' => Computer::query()
-                ->with(['school:id,name', 'schoolClass:id,name'])
-                ->withCount('tokens')
-                ->orderBy('name')
-                ->get(),
+            'computers' => $computers->map(fn (Computer $computer) => [
+                'id' => $computer->id,
+                'name' => $computer->name,
+                'role' => $computer->role,
+                'school_id' => $computer->school_id,
+                'class_id' => $computer->class_id,
+                'school' => $computer->school,
+                'school_class' => $computer->schoolClass,
+                'tokens_count' => $computer->tokens_count,
+                'last_session_synced_at' => $computer->login_sessions_max_created_at,
+                'token_last_used_at' => $computer->tokens->first()?->last_used_at,
+            ]),
             'schools' => School::query()->orderBy('name')->get(['id', 'name']),
             'classes' => SchoolClass::query()->orderBy('name')->get(['id', 'name', 'school_id']),
         ]);

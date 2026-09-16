@@ -3,6 +3,7 @@
 namespace Tests\Feature\Admin;
 
 use App\Models\Computer;
+use App\Models\LoginSession;
 use App\Models\School;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -62,6 +63,34 @@ class ComputerControllerTest extends TestCase
 
         [$oldTokenId] = explode('|', $oldToken, 2);
         $this->assertDatabaseMissing('personal_access_tokens', ['id' => $oldTokenId]);
+    }
+
+    public function test_the_index_surfaces_last_session_and_token_activity_for_remote_diagnosis(): void
+    {
+        $user = User::factory()->create();
+        $school = School::create(['name' => 'Demo Primary School']);
+        $computer = Computer::create(['school_id' => $school->id, 'name' => 'Lab PC 1', 'role' => 'student']);
+
+        // A computer that has never connected shows nulls, not an error.
+        $response = $this->actingAs($user)->get(route('admin.computers.index'))->assertOk();
+        $rows = $response->inertiaProps('computers');
+        $this->assertNull($rows[0]['last_session_synced_at']);
+        $this->assertNull($rows[0]['token_last_used_at']);
+
+        $token = $computer->createToken('kiosk-token');
+        $token->accessToken->forceFill(['last_used_at' => now()])->save();
+        LoginSession::create([
+            'uuid' => (string) \Illuminate\Support\Str::uuid(),
+            'school_id' => $school->id,
+            'computer_id' => $computer->id,
+            'admission_number' => '1001',
+            'login_time' => now(),
+        ]);
+
+        $response = $this->actingAs($user)->get(route('admin.computers.index'))->assertOk();
+        $rows = $response->inertiaProps('computers');
+        $this->assertNotNull($rows[0]['last_session_synced_at']);
+        $this->assertNotNull($rows[0]['token_last_used_at']);
     }
 
     public function test_an_authenticated_user_can_delete_a_computer(): void

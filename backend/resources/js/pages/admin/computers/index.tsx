@@ -10,11 +10,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { ClassOption, Computer, SchoolOption } from '@/types';
 
-const ROW_GRID = 'grid grid-cols-[1.5fr_1fr_2fr_1fr_auto_auto_auto] items-center gap-3 px-4 py-2';
+const ROW_GRID = 'grid grid-cols-[1.5fr_1fr_2fr_1fr_1.5fr_auto_auto_auto] items-center gap-3 px-4 py-2';
 
 type PageProps = {
     flash?: { issuedToken?: string };
 };
+
+function timeAgo(iso: string | null): string {
+    if (!iso) return 'never';
+    const hours = (Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60);
+    if (hours < 1) return 'less than an hour ago';
+    if (hours < 24) return `${Math.floor(hours)}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
+}
 
 export default function ComputersIndex({
     computers,
@@ -116,6 +124,7 @@ export default function ComputersIndex({
                         <div>Role</div>
                         <div>School / Class</div>
                         <div>Token</div>
+                        <div>Last activity</div>
                         <div />
                         <div />
                         <div />
@@ -147,6 +156,10 @@ export default function ComputersIndex({
                                         </NativeSelect>
                                         <div className="text-muted-foreground text-xs">
                                             {computer.tokens_count > 0 ? 'Issued' : 'None issued'}
+                                        </div>
+                                        <div className="text-muted-foreground text-xs" title="Last time this computer's token authenticated a request / a session last synced from it">
+                                            <div>Connected: {timeAgo(computer.token_last_used_at)}</div>
+                                            <div>Synced: {timeAgo(computer.last_session_synced_at)}</div>
                                         </div>
                                         <Button type="submit" size="sm" variant="outline" disabled={processing}>
                                             Save
