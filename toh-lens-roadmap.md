@@ -9,14 +9,15 @@
 ### Built and verified
 - **Kiosk app** (`kiosk/`, Tauri v2 + React): full-screen numeric keypad login (FR-1.2–FR-1.4), local SQLite session log with synced/unsynced flags (FR-3.1–FR-3.3), background sync to the backend every 30s plus an immediate push after logout (FR-4.1–FR-4.2), crash/power-loss session resume, app-level kiosk mode (fullscreen, shortcut blocking).
 - **Backend** (`backend/`, Laravel 12 + Sanctum, MySQL): `schools` / `classes` / `students` / `computers` / `login_sessions` schema scoped by `school_id` (FR-3.3 constraint), per-computer device tokens, `GET /api/roster`, `POST /api/sessions/sync` with UUID-keyed idempotent upsert (FR-4.2), `computer:issue-token` artisan command, demo seeder.
-- **Verified live:** offline login/logout, crash resume, real sync against the backend, cross-school data isolation, 45 automated backend tests passing.
+- **Admin UI** (`backend/`, Inertia + React, behind Fortify auth): create/list/delete for schools and classes, full create/edit/delete for students (admission number unique per school, enforced both client- and server-side) and computers, including a token issue/reissue action that rotates the previous token and shows the plaintext value exactly once.
+- **Verified live:** offline login/logout, crash resume, real sync against the backend, cross-school data isolation, 61 automated backend tests passing (kiosk sync API + admin UI).
 - **Documented, not applied:** real Windows kiosk hardening (Winlogon shell swap, autologon, Task Manager disable) — see `provisioning/windows-kiosk-hardening.md`.
 
 ### Explicitly out of scope so far
 - Any LanSchool Air integration (SRS §3.2 / Phase 2).
 - Any M&E reporting or join logic (SRS §3.5 / Phase 7).
-- An admin UI — schools/classes/students/computers are currently managed only via `php artisan db:seed` / a raw artisan command, not a real interface.
 - The real Windows shell handoff — `LoggedInScreen` is a placeholder standing in for actually launching `explorer.exe`.
+- Explicit vs. inferred logout (no inactivity-timeout fallback yet).
 
 ---
 
@@ -48,12 +49,12 @@ Not started. Prerequisites before this can start for real:
 - [ ] LanSchool offline-behavior verification (Phase 2 item) — SRS explicitly calls this out as needed before pilot.
 - [ ] OS hardening applied to the pilot machine(s), not just documented.
 - [ ] Explicit vs. inferred logout decision made and implemented.
-- [ ] At least a minimal way to onboard the pilot classroom's real students/computers (see admin UI below) rather than hand-editing seed data.
+- [x] A way to onboard the pilot classroom's real students/computers without hand-editing seed data — the admin UI now covers this.
 
 ### Phase 6 — Deploy to Full School
 Not started:
 - [ ] A repeatable install package/script for the kiosk app + OS hardening steps, so a technician can provision a new lab computer without manual file editing.
-- [ ] An admin UI or bulk-import path for onboarding a full school's classes/students/computers (SQL seeding does not scale past a demo).
+- [ ] A bulk-import path for onboarding a full school's students at once (the admin UI's one-at-a-time student form is fine for a pilot classroom, not for a whole school roster).
 
 ### Phase 7 — TOH M&E
 Not started — this is the layer that makes the whole system valuable to M&E staff:
@@ -71,9 +72,9 @@ Not started, but should require no new code if Phase 6 is done right:
 
 ## 3. Suggested order of operations
 
-1. **Finish verifying what's already built** — crash-resume test, true-offline test, kiosk hardening build (`npm run tauri:build:kiosk`) — see prior conversation for the exact steps.
-2. **Minimal admin UI** for schools/classes/students/computers in the backend (it already has Inertia + React scaffolded from the starter kit) — this unblocks everything past "one demo school seeded by hand."
-3. **Decide + implement the logout strategy** (explicit + inactivity fallback) — small, self-contained, and affects session-quality data downstream.
+1. ~~Finish verifying what's already built~~ — kiosk build verified end-to-end live (offline, crash-resume, real sync). Kiosk hardening build (`npm run tauri:build:kiosk`) still untested.
+2. ~~Minimal admin UI~~ — done: schools/classes/students/computers, including computer token issue/reissue.
+3. **Decide + implement the logout strategy** (explicit + inactivity fallback) — small, self-contained, and affects session-quality data downstream. ← next up
 4. **Real `explorer.exe` handoff** in the kiosk Rust code.
 5. **LanSchool Air setup + org verification** (Phase 2) — mostly independent of the above, can run in parallel.
 6. **Apply OS hardening** to one real pilot machine and run the verification checklist.
