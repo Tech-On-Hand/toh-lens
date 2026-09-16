@@ -40,7 +40,7 @@ Mostly done. Remaining:
 
 ### Phase 4 — Monitoring & Data Collection
 Mostly done. Remaining:
-- [ ] Roster staleness handling (SRS Risk #5): surface a warning (on the keypad screen or sync badge) when the cached roster hasn't refreshed in N days, so staff know a newly enrolled student won't validate yet.
+- [x] Roster staleness handling (SRS Risk #5): the roster now auto-refreshes every 6h whenever online (previously only fetched once, at Setup), plus a quiet keypad-screen note if it's gone 24h+ without updating.
 - [ ] Remote diagnosability (NFR 5.5): right now, diagnosing a sync failure means someone reading the local SQLite file or backend logs directly. Consider a lightweight status export or admin-visible per-computer sync health view.
 
 ### Phase 5 — Pilot One Classroom
@@ -91,4 +91,4 @@ Not started, but should require no new code if Phase 6 is done right:
 | 2 | Explicit vs. inferred logout | Resolved — explicit "Log Out" plus a 20-minute inactivity auto-logout fallback |
 | 3 | Attendance vs. usage modeling | Unresolved — no attendance concept yet |
 | 4 | LanSchool org verification | Not done |
-| 5 | Roster sync freshness | Partially mitigated (roster refresh exists) but no staleness warning yet |
+| 5 | Roster sync freshness | Resolved — auto-refreshes every 6h when online, plus a staleness note past 24h |
