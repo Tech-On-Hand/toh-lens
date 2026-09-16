@@ -11,13 +11,13 @@
 - **Backend** (`backend/`, Laravel 12 + Sanctum, MySQL): `schools` / `classes` / `students` / `computers` / `login_sessions` schema scoped by `school_id` (FR-3.3 constraint), per-computer device tokens, `GET /api/roster`, `POST /api/sessions/sync` with UUID-keyed idempotent upsert (FR-4.2), `computer:issue-token` artisan command, demo seeder.
 - **Admin UI** (`backend/`, Inertia + React, behind Fortify auth): create/list/delete for schools and classes, full create/edit/delete for students (admission number unique per school, enforced both client- and server-side) and computers, including a token issue/reissue action that rotates the previous token and shows the plaintext value exactly once, plus a per-computer sync health view (token last-used / last session synced) for remote diagnosis.
 - **Kiosk resilience**: a 20-minute inactivity auto-logout fallback (SRS Risk #2), automatic roster re-sync every 6h when online with a staleness note past 24h (SRS Risk #5), and a real (release-build-only) `explorer.exe` handoff on login/logout.
-- **Verified live:** offline login/logout, crash resume, real sync against the backend, cross-school data isolation, 62 automated backend tests passing (kiosk sync API + admin UI).
+- **M&E reporting (partial, SRS FR-5.3)**: a per-class/per-period usage report (total/active students, average session duration, students with no recorded usage) computed entirely from `login_sessions` — no LanSchool dependency. "Most-used application" is an explicit placeholder pending LanSchool data.
+- **Verified live:** offline login/logout, crash resume, real sync against the backend, cross-school data isolation, 66 automated backend tests passing (kiosk sync API + admin UI + reporting).
 - **Documented, not applied:** real Windows kiosk hardening (Winlogon shell swap, autologon, Task Manager disable) — see `provisioning/windows-kiosk-hardening.md`.
 
 ### Explicitly out of scope so far
-- Any LanSchool Air integration (SRS §3.2 / Phase 2).
-- Any M&E reporting or join logic (SRS §3.5 / Phase 7).
-- The real Windows shell handoff — `LoggedInScreen` is a placeholder standing in for actually launching `explorer.exe`.
+- Any LanSchool Air integration (SRS §3.2 / Phase 2) — including ingesting its activity export, which the M&E report's "most-used application" field needs.
+- The join/ETL between `LoginSession` and LanSchool activity data (SRS FR-5.1).
 
 ---
 
@@ -59,11 +59,11 @@ Not started:
 - [ ] A bulk-import path for onboarding a full school's students at once (the admin UI's one-at-a-time student form is fine for a pilot classroom, not for a whole school roster).
 
 ### Phase 7 — TOH M&E
-Not started — this is the layer that makes the whole system valuable to M&E staff:
-- [ ] Ingestion of LanSchool Air's exported activity logs into the backend (`LanSchool Activity` entity from SRS §6).
+Partially done — the session-only half of the report exists. Remaining, all blocked on Phase 2 (LanSchool Air) actually existing first:
+- [x] Per-class, per-period summary reports (SRS FR-5.3), except most-used application: total students, active students, average usage duration, students with no recorded usage — `backend/app/Http/Controllers/Admin/ReportController.php`, admin page at `/admin/reports`.
+- [ ] Ingestion of LanSchool Air's exported activity logs into the backend (`LanSchool Activity` entity from SRS §6) — needs Phase 2 done first to know the actual export format/mechanism.
 - [ ] The join/ETL process: match `LoginSession` to `LanSchool Activity` by `computer_id` + overlapping time window (SRS FR-5.1), producing `App Usage` records.
-- [ ] Per-class, per-period summary reports (SRS FR-5.3): total students, active students, average usage duration, most-used application, students with no recorded usage.
-- [ ] Some way for M&E staff to actually see these reports — a dashboard page, an export, or both.
+- [ ] Add "most-used application" to the existing report once the above exists.
 - [ ] Decide how to model **attendance vs. usage** (SRS Risk #3) — a student with zero sessions currently looks identical to "not enrolled yet."
 
 ### Phase 8 — Expand to Other Schools
@@ -78,11 +78,14 @@ Not started, but should require no new code if Phase 6 is done right:
 2. ~~Minimal admin UI~~ — done: schools/classes/students/computers, including computer token issue/reissue.
 3. ~~Decide + implement the logout strategy~~ — done: explicit + 20-minute inactivity fallback with a warning.
 4. ~~Real `explorer.exe` handoff~~ — implemented, release-build-only, compile-verified but not yet run on real hardware.
-5. **LanSchool Air setup + org verification** (Phase 2) — mostly independent of the above, can run in parallel. This is coordination/config work with LanSchool itself, not something buildable in this repo — TOH staff action needed here. ← next up (blocked on TOH staff, not code)
-6. **Apply OS hardening** to one real pilot machine, including the real desktop-handoff build, and run the verification checklist. Also needs real hardware.
-7. **Run the Phase 5 pilot** in one classroom.
-8. **Build the LanSchool ingestion + join/ETL + M&E reporting** (Phase 7) — this is the biggest remaining chunk of new code.
-9. **Scale out**: deployment/provisioning docs and bulk onboarding for Phase 6/8.
+5. ~~Build the session-only half of M&E reporting~~ — done: per-class/per-period report, no LanSchool dependency.
+6. **LanSchool Air setup + org verification** (Phase 2) — coordination/config work with LanSchool itself, not something buildable in this repo. **Blocked on TOH staff, not code.** ← next up
+7. **Apply OS hardening** to one real pilot machine, including the real desktop-handoff build, and run the verification checklist. **Needs real hardware.**
+8. **Run the Phase 5 pilot** in one classroom.
+9. **Finish Phase 7**: LanSchool activity ingestion + join/ETL, then add "most-used application" to the existing report.
+10. **Scale out**: deployment/provisioning docs and bulk onboarding for Phase 6/8.
+
+The remaining code-actionable item that isn't blocked on TOH staff or real hardware is the **Phase 6 bulk student import** — worth doing next if there's more to build before Phase 2/5 unblock.
 
 ---
 
