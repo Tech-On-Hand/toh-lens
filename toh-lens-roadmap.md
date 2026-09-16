@@ -9,8 +9,9 @@
 ### Built and verified
 - **Kiosk app** (`kiosk/`, Tauri v2 + React): full-screen numeric keypad login (FR-1.2–FR-1.4), local SQLite session log with synced/unsynced flags (FR-3.1–FR-3.3), background sync to the backend every 30s plus an immediate push after logout (FR-4.1–FR-4.2), crash/power-loss session resume, app-level kiosk mode (fullscreen, shortcut blocking).
 - **Backend** (`backend/`, Laravel 12 + Sanctum, MySQL): `schools` / `classes` / `students` / `computers` / `login_sessions` schema scoped by `school_id` (FR-3.3 constraint), per-computer device tokens, `GET /api/roster`, `POST /api/sessions/sync` with UUID-keyed idempotent upsert (FR-4.2), `computer:issue-token` artisan command, demo seeder.
-- **Admin UI** (`backend/`, Inertia + React, behind Fortify auth): create/list/delete for schools and classes, full create/edit/delete for students (admission number unique per school, enforced both client- and server-side) and computers, including a token issue/reissue action that rotates the previous token and shows the plaintext value exactly once.
-- **Verified live:** offline login/logout, crash resume, real sync against the backend, cross-school data isolation, 61 automated backend tests passing (kiosk sync API + admin UI).
+- **Admin UI** (`backend/`, Inertia + React, behind Fortify auth): create/list/delete for schools and classes, full create/edit/delete for students (admission number unique per school, enforced both client- and server-side) and computers, including a token issue/reissue action that rotates the previous token and shows the plaintext value exactly once, plus a per-computer sync health view (token last-used / last session synced) for remote diagnosis.
+- **Kiosk resilience**: a 20-minute inactivity auto-logout fallback (SRS Risk #2), automatic roster re-sync every 6h when online with a staleness note past 24h (SRS Risk #5), and a real (release-build-only) `explorer.exe` handoff on login/logout.
+- **Verified live:** offline login/logout, crash resume, real sync against the backend, cross-school data isolation, 62 automated backend tests passing (kiosk sync API + admin UI).
 - **Documented, not applied:** real Windows kiosk hardening (Winlogon shell swap, autologon, Task Manager disable) — see `provisioning/windows-kiosk-hardening.md`.
 
 ### Explicitly out of scope so far
@@ -41,7 +42,9 @@ Mostly done. Remaining:
 ### Phase 4 — Monitoring & Data Collection
 Mostly done. Remaining:
 - [x] Roster staleness handling (SRS Risk #5): the roster now auto-refreshes every 6h whenever online (previously only fetched once, at Setup), plus a quiet keypad-screen note if it's gone 24h+ without updating.
-- [ ] Remote diagnosability (NFR 5.5): right now, diagnosing a sync failure means someone reading the local SQLite file or backend logs directly. Consider a lightweight status export or admin-visible per-computer sync health view.
+- [x] Remote diagnosability (NFR 5.5): the Computers admin page now shows, per computer, when its token last authenticated and when a session last synced from it — diagnosable without touching the machine.
+
+Phase 4 is now fully done.
 
 ### Phase 5 — Pilot One Classroom
 Not started. Prerequisites before this can start for real:
@@ -75,8 +78,8 @@ Not started, but should require no new code if Phase 6 is done right:
 2. ~~Minimal admin UI~~ — done: schools/classes/students/computers, including computer token issue/reissue.
 3. ~~Decide + implement the logout strategy~~ — done: explicit + 20-minute inactivity fallback with a warning.
 4. ~~Real `explorer.exe` handoff~~ — implemented, release-build-only, compile-verified but not yet run on real hardware.
-5. **LanSchool Air setup + org verification** (Phase 2) — mostly independent of the above, can run in parallel. ← next up
-6. **Apply OS hardening** to one real pilot machine, including the real desktop-handoff build, and run the verification checklist.
+5. **LanSchool Air setup + org verification** (Phase 2) — mostly independent of the above, can run in parallel. This is coordination/config work with LanSchool itself, not something buildable in this repo — TOH staff action needed here. ← next up (blocked on TOH staff, not code)
+6. **Apply OS hardening** to one real pilot machine, including the real desktop-handoff build, and run the verification checklist. Also needs real hardware.
 7. **Run the Phase 5 pilot** in one classroom.
 8. **Build the LanSchool ingestion + join/ETL + M&E reporting** (Phase 7) — this is the biggest remaining chunk of new code.
 9. **Scale out**: deployment/provisioning docs and bulk onboarding for Phase 6/8.
