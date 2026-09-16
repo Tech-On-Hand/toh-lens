@@ -86,30 +86,41 @@ pub fn validate_admission_number(state: State<AppState>, admission_number: Strin
 }
 
 #[tauri::command]
-pub fn record_login(state: State<AppState>, admission_number: String) -> Result<LoginSessionRecord, String> {
-    let conn = state.db.lock().unwrap();
-    let config = config_repo::get_config(&conn).map_err(|_| GENERIC_LOGIN_ERROR)?.ok_or(NOT_CONFIGURED_ERROR)?;
+pub fn record_login(app: tauri::AppHandle, state: State<AppState>, admission_number: String) -> Result<LoginSessionRecord, String> {
+    let record = {
+        let conn = state.db.lock().unwrap();
+        let config = config_repo::get_config(&conn).map_err(|_| GENERIC_LOGIN_ERROR)?.ok_or(NOT_CONFIGURED_ERROR)?;
 
-    let admission_number = admission_number.trim();
-    if admission_number.is_empty() {
-        return Err(GENERIC_LOGIN_ERROR.to_string());
-    }
+        let admission_number = admission_number.trim();
+        if admission_number.is_empty() {
+            return Err(GENERIC_LOGIN_ERROR.to_string());
+        }
 
-    // Re-validate here rather than trusting a prior validate_admission_number
-    // call — this is the single source of truth for who is allowed in.
-    let student = roster_repo::find_student(&conn, config.school_id, admission_number)
-        .map_err(|_| GENERIC_LOGIN_ERROR.to_string())?
-        .ok_or_else(|| GENERIC_LOGIN_ERROR.to_string())?;
+        // Re-validate here rather than trusting a prior validate_admission_number
+        // call — this is the single source of truth for who is allowed in.
+        let student = roster_repo::find_student(&conn, config.school_id, admission_number)
+            .map_err(|_| GENERIC_LOGIN_ERROR.to_string())?
+            .ok_or_else(|| GENERIC_LOGIN_ERROR.to_string())?;
 
-    session_repo::insert_login(&conn, config.school_id, config.computer_id, &student).map_err(|e| e.to_string())
+        session_repo::insert_login(&conn, config.school_id, config.computer_id, &student).map_err(|e| e.to_string())?
+    };
+
+    // FR-1.5: hand off to the normal desktop. No-op in dev builds — see
+    // shell_handoff.rs for why this must never run on a developer machine.
+    crate::shell_handoff::launch_desktop(&app, &state);
+
+    Ok(record)
 }
 
 #[tauri::command]
-pub fn record_logout(state: State<AppState>, session_uuid: String) -> Result<(), String> {
+pub fn record_logout(app: tauri::AppHandle, state: State<AppState>, session_uuid: String) -> Result<(), String> {
     {
         let conn = state.db.lock().unwrap();
         session_repo::close_logout(&conn, &session_uuid).map_err(|e| e.to_string())?;
     }
+
+    // FR-1.6: reclaim the desktop before returning to the keypad.
+    crate::shell_handoff::reclaim_desktop(&app, &state);
 
     // Best-effort push right after logout so completed sessions sync
     // promptly instead of waiting for the next periodic tick.

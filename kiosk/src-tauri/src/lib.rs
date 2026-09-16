@@ -2,6 +2,7 @@ mod api_client;
 mod commands;
 mod db;
 mod models;
+mod shell_handoff;
 mod state;
 mod sync;
 

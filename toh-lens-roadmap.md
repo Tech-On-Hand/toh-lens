@@ -17,7 +17,6 @@
 - Any LanSchool Air integration (SRS §3.2 / Phase 2).
 - Any M&E reporting or join logic (SRS §3.5 / Phase 7).
 - The real Windows shell handoff — `LoggedInScreen` is a placeholder standing in for actually launching `explorer.exe`.
-- Explicit vs. inferred logout (no inactivity-timeout fallback yet).
 
 ---
 
@@ -35,9 +34,9 @@ Not started. All configuration/coordination work, no code:
 
 ### Phase 3 — Student Identity Gate
 Mostly done. Remaining:
-- [ ] Replace the placeholder `LoggedInScreen` with the real behavior: launch `explorer.exe` as a child process on successful login, reclaim control on logout (SRS FR-1.5).
+- [x] Real desktop handoff (SRS FR-1.5/FR-1.6): `record_login` spawns `explorer.exe` and hides the kiosk window, `record_logout` kills it and reclaims the window — gated to release builds only (`shell_handoff.rs`), a no-op in every dev build so it can't disrupt a developer's own desktop. **Not yet tested on a real hardened machine** (only compile-checked in both debug and release) — genuinely needs a real device with the shell actually replaced, which this dev machine deliberately is not. Known gap: a crash-then-relaunch after login doesn't re-detect an already-running handed-off `explorer.exe`.
 - [ ] Apply the real OS hardening from `provisioning/windows-kiosk-hardening.md` to an actual machine and verify against its checklist.
-- [ ] Decide on **explicit vs. inferred logout** (SRS Risk #2) — currently explicit-only (a "Log Out" click). If students forget, sessions stay open until the next login auto-closes them, which is a coarse approximation. Consider an inactivity timeout as a fallback.
+- [x] Decide on **explicit vs. inferred logout** (SRS Risk #2) — implemented as explicit + a 20-minute inactivity fallback (60s warning, then auto-logout), reusing the same `record_logout` path as the manual button.
 
 ### Phase 4 — Monitoring & Data Collection
 Mostly done. Remaining:
@@ -74,10 +73,10 @@ Not started, but should require no new code if Phase 6 is done right:
 
 1. ~~Finish verifying what's already built~~ — kiosk build verified end-to-end live (offline, crash-resume, real sync). Kiosk hardening build (`npm run tauri:build:kiosk`) still untested.
 2. ~~Minimal admin UI~~ — done: schools/classes/students/computers, including computer token issue/reissue.
-3. **Decide + implement the logout strategy** (explicit + inactivity fallback) — small, self-contained, and affects session-quality data downstream. ← next up
-4. **Real `explorer.exe` handoff** in the kiosk Rust code.
-5. **LanSchool Air setup + org verification** (Phase 2) — mostly independent of the above, can run in parallel.
-6. **Apply OS hardening** to one real pilot machine and run the verification checklist.
+3. ~~Decide + implement the logout strategy~~ — done: explicit + 20-minute inactivity fallback with a warning.
+4. ~~Real `explorer.exe` handoff~~ — implemented, release-build-only, compile-verified but not yet run on real hardware.
+5. **LanSchool Air setup + org verification** (Phase 2) — mostly independent of the above, can run in parallel. ← next up
+6. **Apply OS hardening** to one real pilot machine, including the real desktop-handoff build, and run the verification checklist.
 7. **Run the Phase 5 pilot** in one classroom.
 8. **Build the LanSchool ingestion + join/ETL + M&E reporting** (Phase 7) — this is the biggest remaining chunk of new code.
 9. **Scale out**: deployment/provisioning docs and bulk onboarding for Phase 6/8.
@@ -89,7 +88,7 @@ Not started, but should require no new code if Phase 6 is done right:
 | # | Risk | Status |
 |---|---|---|
 | 1 | LanSchool Air's cloud dependency during outages | Unverified — needs direct confirmation from LanSchool support before pilot |
-| 2 | Explicit vs. inferred logout | Unresolved — currently explicit-only with auto-close-on-next-login as a safety net |
+| 2 | Explicit vs. inferred logout | Resolved — explicit "Log Out" plus a 20-minute inactivity auto-logout fallback |
 | 3 | Attendance vs. usage modeling | Unresolved — no attendance concept yet |
 | 4 | LanSchool org verification | Not done |
 | 5 | Roster sync freshness | Partially mitigated (roster refresh exists) but no staleness warning yet |
