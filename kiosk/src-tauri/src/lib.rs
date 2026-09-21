@@ -4,6 +4,7 @@ mod commands;
 mod credential_store;
 mod db;
 mod models;
+mod policy_sync;
 mod shell_handoff;
 mod state;
 mod sync;

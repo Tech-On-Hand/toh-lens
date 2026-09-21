@@ -86,9 +86,13 @@ impl Bridge {
     /// Asks every connected extension to send a fresh tab snapshot, used when the
     /// signed-in student changes so tabs are re-attributed straight away.
     pub fn request_snapshots(&self) {
-        let message = envelope(&Uuid::new_v4().to_string(), "browser.request_snapshot", json!({}));
+        self.broadcast(&envelope(&Uuid::new_v4().to_string(), "browser.request_snapshot", json!({})));
+    }
+
+    /// Sends one already-framed line to every connected extension.
+    pub(crate) fn broadcast(&self, line: &str) {
         for host in self.inner.hosts.lock().unwrap().values() {
-            let _ = host.tx.send(message.clone());
+            let _ = host.tx.send(line.to_string());
         }
     }
 
@@ -132,7 +136,7 @@ impl Bridge {
     }
 }
 
-fn envelope(id: &str, kind: &str, payload: Value) -> String {
+pub(crate) fn envelope(id: &str, kind: &str, payload: Value) -> String {
     let mut line = json!({
         "version": 1,
         "id": id,
@@ -280,6 +284,10 @@ fn handle_message(state: &AppState, connection: &mut Connection, message: Value)
             if let Some(browser) = valid_browser(&payload["browser"]) {
                 state.bridge.register_host(&browser, connection.id, connection.tx.clone());
                 connection.browser = Some(browser);
+                // A browser that just started gets the current rules straight away.
+                if let Some(policy) = crate::policy_sync::cached(state) {
+                    let _ = connection.tx.send(crate::policy_sync::message(&policy));
+                }
             }
         }
         "browser.snapshot" => {
@@ -335,7 +343,7 @@ fn store_events(state: &AppState, browser: &str, payload: &Value) {
 
     for event in events.iter().take(EVENT_BATCH as usize) {
         let uuid = event["uuid"].as_str().filter(|value| Uuid::parse_str(value).is_ok());
-        let kind = event["type"].as_str().filter(|value| matches!(*value, "navigated" | "activated"));
+        let kind = event["type"].as_str().filter(|value| matches!(*value, "navigated" | "activated" | "blocked"));
         let (Some(uuid), Some(kind)) = (uuid, kind) else { continue };
 
         let occurred_at = normalize_instant(&event["occurred_at"]).unwrap_or_else(|| Utc::now().to_rfc3339());
@@ -361,6 +369,9 @@ fn store_events(state: &AppState, browser: &str, payload: &Value) {
 
 /// One scheduling step: push queued browser data, then check for commands.
 pub async fn tick(state: &AppState, tick_number: u64) {
+    // Focus sessions end on this computer's clock even when the network is down.
+    crate::policy_sync::enforce_local_expiry(state);
+
     let (base_url, token) = {
         let conn = state.db.lock().unwrap();
         (config_repo::get_api_base_url(&conn).ok().flatten(), crate::credential_store::get_token())
@@ -371,6 +382,7 @@ pub async fn tick(state: &AppState, tick_number: u64) {
 
     let active = state.bridge.has_host() && current_session(state).is_some();
     if active || tick_number % IDLE_POLL_EVERY == 0 {
+        crate::policy_sync::sync(state, &base_url, &token).await;
         poll_commands(state, &base_url, &token).await;
     }
 }
@@ -674,6 +686,58 @@ mod tests {
 
         let no_extension = json!({ "expires_at": future, "student_session_id": session, "type": "browser.open_url", "payload": {} });
         assert_eq!(execute(&harness.state, &no_extension, "c").await.1["error"], "EXTENSION_UNAVAILABLE");
+    }
+
+    #[tokio::test]
+    async fn a_browser_that_connects_is_given_the_cached_policy_immediately() {
+        let harness = harness().await;
+        let policy = crate::policy_sync::CachedPolicy { version: "v9".into(), block: vec!["games.example".into()], focus: None };
+        crate::db::policy_repo::save(&harness.state.db.lock().unwrap(), &policy).unwrap();
+
+        let (mut reader, mut write) = connect(&harness).await;
+        send(&mut write, "browser.hello", json!({ "browser": "chrome" })).await;
+
+        let line = tokio::time::timeout(Duration::from_secs(5), read_line(&mut reader)).await.unwrap().unwrap().unwrap();
+        let message: Value = serde_json::from_str(&line).unwrap();
+        assert_eq!(message["type"], "policy.update");
+        assert_eq!(message["payload"]["version"], "v9");
+        assert_eq!(message["payload"]["block"], json!(["games.example"]));
+    }
+
+    #[tokio::test]
+    async fn a_policy_change_is_pushed_to_every_connected_extension() {
+        let harness = harness().await;
+        let (mut chrome, mut chrome_write) = connect(&harness).await;
+        let (mut edge, mut edge_write) = connect(&harness).await;
+        send(&mut chrome_write, "browser.hello", json!({ "browser": "chrome" })).await;
+        send(&mut edge_write, "browser.hello", json!({ "browser": "edge" })).await;
+        let bridge = harness.state.bridge.clone();
+        eventually(|| bridge.inner.hosts.lock().unwrap().len() == 2).await;
+
+        let policy = crate::policy_sync::CachedPolicy { version: "v2".into(), block: vec!["a.example".into()], focus: None };
+        bridge.broadcast(&crate::policy_sync::message(&policy));
+
+        for reader in [&mut chrome, &mut edge] {
+            let line = tokio::time::timeout(Duration::from_secs(5), read_line(reader)).await.unwrap().unwrap().unwrap();
+            assert_eq!(serde_json::from_str::<Value>(&line).unwrap()["payload"]["version"], "v2");
+        }
+    }
+
+    #[tokio::test]
+    async fn blocked_attempts_are_queued_like_any_other_browsing_event() {
+        let harness = harness().await;
+        sign_in(&harness.state, "1001");
+        let (_reader, mut write) = connect(&harness).await;
+
+        send(&mut write, "browser.activity", json!({ "browser": "chrome", "events": [
+            { "uuid": Uuid::new_v4().to_string(), "type": "blocked", "url": "https://games.example/", "title": "Blocked (focus)", "occurred_at": Utc::now().to_rfc3339() }
+        ] })).await;
+
+        let state = harness.state.clone();
+        eventually(|| browser_repo::pending_events(&state.db.lock().unwrap(), "chrome", 10).unwrap().len() == 1).await;
+        let events = browser_repo::pending_events(&harness.state.db.lock().unwrap(), "chrome", 10).unwrap();
+        assert_eq!(events[0]["type"], "blocked");
+        assert!(events[0]["session_uuid"].is_string(), "attributed to the signed-in student");
     }
 
     #[test]

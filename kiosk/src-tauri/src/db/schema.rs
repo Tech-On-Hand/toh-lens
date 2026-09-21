@@ -51,9 +51,20 @@ CREATE TABLE browser_events (
 );
 "#;
 
+/// The last policy the backend sent, so blocking and focus keep working (and
+/// survive a restart) with no connection.
+const MIGRATION_V3: &str = r#"
+CREATE TABLE policy_cache (
+    id         INTEGER PRIMARY KEY CHECK (id = 1),
+    version    TEXT NOT NULL,
+    payload    TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+"#;
+
 /// Step-wise migrations keyed by `PRAGMA user_version`. Add new steps by
 /// appending to this slice — never edit a step that has already shipped.
-const MIGRATIONS: &[&str] = &[MIGRATION_V1, MIGRATION_V2];
+const MIGRATIONS: &[&str] = &[MIGRATION_V1, MIGRATION_V2, MIGRATION_V3];
 
 pub fn run_migrations(conn: &Connection) -> rusqlite::Result<()> {
     let current_version: i64 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;

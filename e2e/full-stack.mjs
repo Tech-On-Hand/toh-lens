@@ -85,6 +85,30 @@ try {
     },
   });
   exitCode = result.status ?? 1;
+
+  if (exitCode === 0) {
+    // The agent's queue also empties when the server permanently rejects a payload,
+    // so confirm what the backend actually stored.
+    const inspect = String.raw`
+      echo json_encode([
+        'navigated' => \App\Models\BrowserActivity::where('event_type', 'navigated')->count(),
+        'blocked' => \App\Models\BrowserActivity::where('event_type', 'blocked')->where('domain', 'games.example')->whereNotNull('login_session_id')->count(),
+        'tabs' => \App\Models\BrowserTab::count(),
+        'audit' => \App\Models\AuditLog::orderBy('id')->pluck('action')->all(),
+      ]);
+    `;
+    const stored = JSON.parse(/\{"navigated".*\}/.exec(artisan('tinker', `--execute=${inspect}`).stdout)?.[0] ?? 'null');
+    const expectedAudit = ['browser.command_issued', 'block_rule.added', 'focus.started', 'focus.ended'];
+    const problems = [];
+    if (stored?.navigated !== 1) problems.push(`expected 1 navigated event, found ${stored?.navigated}`);
+    if (stored?.blocked !== 1) problems.push(`expected 1 attributed blocked event, found ${stored?.blocked}`);
+    if (stored?.tabs !== 2) problems.push(`expected 2 stored tabs, found ${stored?.tabs}`);
+    if (JSON.stringify(stored?.audit) !== JSON.stringify(expectedAudit)) problems.push(`audit was ${JSON.stringify(stored?.audit)}`);
+    if (problems.length) {
+      console.log(`\nbackend records were wrong:\n  ${problems.join('\n  ')}`);
+      exitCode = 1;
+    }
+  }
   console.log(exitCode === 0 ? '\nfull-stack e2e ok: real agent code + real Laravel API' : '\nfull-stack e2e FAILED');
 } finally {
   try { if (server?.pid) execFileSync('taskkill', ['/PID', String(server.pid), '/T', '/F'], { stdio: 'ignore' }); } catch {}

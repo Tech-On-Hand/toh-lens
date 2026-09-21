@@ -221,3 +221,28 @@ pub async fn post_command_result(
         Err(format!("server returned {}", response.status()))
     }
 }
+
+/// Pass the last known `version` to get a tiny "unchanged" answer when nothing moved.
+pub async fn fetch_policy(
+    http: &reqwest::Client,
+    base_url: &str,
+    token: &str,
+    known: Option<&str>,
+) -> Result<crate::policy_sync::PolicyDto, String> {
+    let mut request = http.get(join_url(base_url, "api/v1/device/policy")).bearer_auth(token);
+    if let Some(version) = known {
+        request = request.query(&[("known", version)]);
+    }
+
+    let response = request.send().await.map_err(|e| e.to_string())?;
+    if !response.status().is_success() {
+        return Err(format!("server returned {}", response.status()));
+    }
+
+    response
+        .json::<ApiEnvelope<crate::policy_sync::PolicyDto>>()
+        .await
+        .map_err(|e| e.to_string())?
+        .data
+        .ok_or_else(|| "The server returned an invalid policy response.".into())
+}

@@ -37,6 +37,12 @@ async fn sync_sessions(state: &AppState, base: &str, token: &str) {
     session_repo::mark_synced(&state.db.lock().unwrap(), &uuids).unwrap();
 }
 
+async fn next_message<R: AsyncBufRead + Unpin>(reader: &mut R) -> Value {
+    let mut line = String::new();
+    tokio::time::timeout(Duration::from_secs(10), reader.read_line(&mut line)).await.expect("a message for the extension").unwrap();
+    serde_json::from_str(&line).unwrap()
+}
+
 fn message(kind: &str, payload: Value) -> String {
     format!("{}\n", json!({ "version": 1, "id": Uuid::new_v4().to_string(), "type": kind, "payload": payload }))
 }
@@ -101,7 +107,8 @@ async fn the_agent_and_backend_agree_end_to_end() {
             message(
                 "browser.activity",
                 json!({ "browser": "chrome", "events": [
-                    { "uuid": Uuid::new_v4().to_string(), "type": "navigated", "url": "https://khan.example/lesson?x=1", "title": "Lesson", "occurred_at": Utc::now().to_rfc3339() }
+                    { "uuid": Uuid::new_v4().to_string(), "type": "navigated", "url": "https://khan.example/lesson?x=1", "title": "Lesson", "occurred_at": Utc::now().to_rfc3339() },
+                    { "uuid": Uuid::new_v4().to_string(), "type": "blocked", "url": "https://games.example/", "title": "Blocked (focus)", "occurred_at": Utc::now().to_rfc3339() }
                 ] }),
             )
             .as_bytes(),
@@ -183,6 +190,44 @@ async fn the_agent_and_backend_agree_end_to_end() {
     .await;
     let finished = get(&state, format!("{command_url}/{command_id}"), &teacher).await;
     assert_eq!(finished["data"]["result"]["tab_id"], 42);
+
+    // Policy: the teacher blocks a site and runs a focus session; the agent's real
+    // sync fetches each change and hands it to the extension with a local deadline.
+    let classroom = format!("{base}/api/v1/teacher/classrooms/{classroom_id}");
+    let post = |url: String, body: Value| {
+        let (http, teacher) = (state.http.clone(), teacher.clone());
+        async move { http.post(url).bearer_auth(teacher).json(&body).send().await.unwrap() }
+    };
+
+    let rule = post(format!("{classroom}/block-rules"), json!({ "domain": "https://Games.Example/play" })).await;
+    assert_eq!(rule.status().as_u16(), 201);
+    crate::policy_sync::sync(&state, &base, &device_token).await;
+    let update = next_message(&mut extension).await;
+    assert_eq!(update["type"], "policy.update");
+    assert_eq!(update["payload"]["block"], json!(["games.example"]));
+    assert!(update["payload"]["focus"].is_null());
+
+    let focus = post(format!("{classroom}/focus-sessions"), json!({ "allowed_domains": ["khan.example"], "duration_minutes": 5 })).await;
+    assert_eq!(focus.status().as_u16(), 201);
+    let focus_id = focus.json::<Value>().await.unwrap()["data"]["id"].as_str().unwrap().to_string();
+    crate::policy_sync::sync(&state, &base, &device_token).await;
+    let update = next_message(&mut extension).await;
+    assert_eq!(update["payload"]["focus"]["allowed_domains"], json!(["khan.example"]));
+    let ends_at = DateTime::parse_from_rfc3339(update["payload"]["focus"]["ends_at"].as_str().unwrap()).unwrap().with_timezone(&Utc);
+    let remaining = (ends_at - Utc::now()).num_seconds();
+    assert!((290..=300).contains(&remaining), "the local deadline should be about five minutes away, was {remaining}s");
+    assert_eq!(crate::policy_sync::cached(&state).unwrap().version, update["payload"]["version"].as_str().unwrap(), "the policy is cached for offline use");
+
+    crate::policy_sync::sync(&state, &base, &device_token).await;
+    let quiet = tokio::time::timeout(Duration::from_millis(400), next_message(&mut extension)).await;
+    assert!(quiet.is_err(), "an unchanged policy must not be pushed again");
+
+    let ended = post(format!("{classroom}/focus-sessions/{focus_id}/end"), json!({})).await;
+    assert_eq!(ended.status().as_u16(), 200);
+    crate::policy_sync::sync(&state, &base, &device_token).await;
+    let update = next_message(&mut extension).await;
+    assert!(update["payload"]["focus"].is_null(), "ending focus releases the browser");
+    assert_eq!(update["payload"]["block"], json!(["games.example"]), "the block rule stays");
 
     // After sign-out the same session can no longer be commanded.
     {
