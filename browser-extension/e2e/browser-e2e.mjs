@@ -215,6 +215,66 @@ try {
   hostSocket.write(JSON.stringify({ version: 1, id: 'r1', type: 'browser.request_snapshot', occurred_at: new Date().toISOString(), payload: {} }) + '\n');
   await next((m) => m.type === 'browser.snapshot', 'a requested snapshot');
 
+  // --- classroom policy, enforced by the real browser ------------------------
+  const site = (name) => `http://${name}.localhost:${webPort}/`;
+  const blockedPage = (reason, original) => `chrome-extension://${extensionId}/blocked.html?reason=${reason}&u=${original}`;
+  const sendPolicy = (payload) => hostSocket.write(JSON.stringify({ version: 1, id: `p-${Math.random()}`, type: 'policy.update', occurred_at: new Date().toISOString(), payload }) + '\n');
+  const tabWhere = async (predicate, what, timeoutMs = 15000) => {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const found = (await pageTargets()).find(predicate);
+      if (found) return found;
+      await sleep(150);
+    }
+    throw new Error(`timed out waiting for ${what}. Tabs: ${JSON.stringify((await pageTargets()).map((t) => t.url))}`);
+  };
+  const open = (url) => devtools(`/json/new?${url}`, 'PUT');
+
+  step('a block rule sends navigation to a blocked site to the blocked page, while other sites load');
+  sendPolicy({ version: 'v1', block: ['blocked.localhost'], focus: null });
+  await sleep(500);
+  await open(site('blocked'));
+  const parkedTab = await tabWhere((t) => t.url === blockedPage('blocked', site('blocked')), 'the blocked site to be redirected');
+  assert.equal(parkedTab.title, 'Page blocked');
+  await open(site('allowed'));
+  await tabWhere((t) => t.url === site('allowed'), 'an unblocked site to load normally');
+
+  step('the teacher side sees the attempt as a blocked event and the original address in the snapshot');
+  const blockedEvent = await next((m) => m.type === 'browser.activity' && m.payload.events.some((e) => e.type === 'blocked' && e.url === site('blocked')), 'a blocked event');
+  assert.equal(blockedEvent.payload.events.find((e) => e.type === 'blocked').title, 'Blocked (blocked)');
+  await next((m) => m.type === 'browser.snapshot' && m.payload.tabs.some((t) => t.url === site('blocked')), 'a snapshot reporting the original address');
+
+  step('a focus session parks every tab that is not allowed, including ones already open');
+  sendPolicy({ version: 'v2', block: ['blocked.localhost'], focus: { id: 'f1', name: 'e2e', allowed_domains: ['allowed.localhost'], ends_at: new Date(Date.now() + 9000).toISOString() } });
+  await tabWhere((t) => t.url === blockedPage('focus', page('c')), 'an already-open tab to be parked by the focus session');
+  await open(site('other'));
+  await tabWhere((t) => t.url === blockedPage('focus', site('other')), 'a new navigation to a non-allowed site to be blocked');
+  await tabWhere((t) => t.url === site('allowed'), 'the allowed site to stay open');
+  await open(`${site('allowed')}second`);
+  await tabWhere((t) => t.url === `${site('allowed')}second`, 'another page on the allowed site to load');
+
+  step('the session ends by itself at its deadline and tabs return to where they were');
+  await tabWhere((t) => t.url === page('c'), 'the parked tab to be restored after the deadline', 40000);
+  await tabWhere((t) => t.url === site('other'), 'the other parked tab to be restored', 10000);
+  assert.ok((await urls()).includes(blockedPage('blocked', site('blocked'))), 'the standing block rule must survive the end of focus');
+  await open(site('blocked'));
+  await sleep(1500);
+  assert.ok((await pageTargets()).filter((t) => t.url === blockedPage('blocked', site('blocked'))).length >= 2, 'blocked sites stay blocked after focus');
+
+  step('with no agent connection the browser keeps enforcing the last policy');
+  await stopAgent();
+  await sleep(500);
+  await open(site('blocked'));
+  await sleep(1500);
+  assert.ok((await pageTargets()).filter((t) => t.url === blockedPage('blocked', site('blocked'))).length >= 3, 'enforcement continues offline');
+  await startAgent();
+  await next((m) => m.type === 'browser.hello', 'the extension to reconnect after the offline check', 45000);
+
+  step('removing the rule releases the parked tabs');
+  sendPolicy({ version: 'v3', block: [], focus: null });
+  await tabWhere((t) => t.url === site('blocked'), 'a parked tab to be restored when the rule is removed');
+  assert.ok(!(await urls()).some((url) => url.startsWith(`chrome-extension://${extensionId}/blocked.html`)), 'no tab stays parked');
+
   step('after the agent restarts (new port, new secret) the extension reconnects on its own');
   await stopAgent();
   await sleep(500);

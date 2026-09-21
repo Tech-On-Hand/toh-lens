@@ -2,6 +2,8 @@
 // host: reports what the student has open and carries out teacher commands.
 // The browser APIs and timers are injected so this runs unchanged under Node tests.
 
+import { blockedPageUrl, buildRules, evaluate, isBlockedPage, parseBlockedUrl, parsePolicy, RULE_IDS } from './policy.js';
+
 export const HOST_NAME = 'com.techonhand.klas';
 export const PROTOCOL_VERSION = 1;
 
@@ -56,6 +58,13 @@ export class BrowserBridge {
     this.events = [];
     this.knownUrls = new Map();
     this.pendingNavigation = new Map();
+    this.policy = null;
+    this.expiryTimer = null;
+    this.lastBlocked = new Map();
+  }
+
+  get blockedPage() {
+    return this.chrome.runtime.getURL('blocked.html');
   }
 
   start() {
@@ -79,10 +88,13 @@ export class BrowserBridge {
     alarms.create('toh-klas-keepalive', { periodInMinutes: 0.5 });
     alarms.onAlarm.addListener((alarm) => {
       if (alarm.name !== 'toh-klas-keepalive') return;
+      void this.checkPolicyExpiry();
       if (this.port) this.scheduleSnapshot(0);
       else this.connect();
     });
 
+    // The last policy keeps being enforced with no agent connection at all.
+    void this.loadPolicy();
     this.connect();
   }
 
@@ -176,7 +188,8 @@ export class BrowserBridge {
         .map((tab) => ({
           tab_id: tab.id,
           window_id: tab.windowId ?? null,
-          url: tab.url ?? tab.pendingUrl ?? null,
+          // A tab parked on the blocked page is reported as the address it tried to reach.
+          url: parseBlockedUrl(this.blockedPage, tab.url)?.url ?? tab.url ?? tab.pendingUrl ?? null,
           title: tab.title ?? null,
           // "Active" means the student is looking at it: the selected tab of the focused window.
           active: Boolean(tab.active && focused?.focused && focused.id === tab.windowId),
@@ -221,7 +234,14 @@ export class BrowserBridge {
     const tab = await this.chrome.tabs.get(tabId).catch(() => null);
     if (!tab || tab.incognito || !tab.url || this.knownUrls.get(tabId) === tab.url) return;
     this.knownUrls.set(tabId, tab.url);
-    this.recordEvent('navigated', tab);
+
+    const blocked = parseBlockedUrl(this.blockedPage, tab.url);
+    if (blocked) {
+      // Log the attempt against the address the student tried to reach.
+      this.recordEvent('blocked', { url: blocked.url, title: `Blocked (${blocked.reason})` });
+    } else if (!isBlockedPage(this.blockedPage, tab.url)) {
+      this.recordEvent('navigated', tab);
+    }
   }
 
   async onTabActivated(tabId) {
@@ -229,7 +249,8 @@ export class BrowserBridge {
     const tab = await this.chrome.tabs.get(tabId).catch(() => null);
     if (!tab || tab.incognito || !tab.url) return;
     this.knownUrls.set(tabId, tab.url);
-    this.recordEvent('activated', tab);
+    const blocked = parseBlockedUrl(this.blockedPage, tab.url);
+    this.recordEvent('activated', blocked ? { url: blocked.url, title: `Blocked (${blocked.reason})` } : tab);
   }
 
   recordEvent(type, tab) {
@@ -262,6 +283,74 @@ export class BrowserBridge {
     }
   }
 
+  // --- policy -----------------------------------------------------------
+
+  async loadPolicy() {
+    try {
+      const { policy } = await this.chrome.storage.local.get('policy');
+      if (policy && Array.isArray(policy.block) && !this.policy) await this.applyPolicy(policy, { persist: false });
+    } catch {
+      // Nothing stored yet, or storage is unavailable: wait for the agent.
+    }
+  }
+
+  /** Makes the browser enforce `policy` and repairs tabs that the change affects. `null` (a refused update) is ignored. */
+  async applyPolicy(policy, { persist = true } = {}) {
+    if (!policy) return;
+    this.policy = policy;
+
+    if (persist) await this.chrome.storage.local.set({ policy });
+    await this.chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: RULE_IDS,
+      addRules: buildRules(policy, this.now().getTime(), this.blockedPage),
+    });
+
+    this.scheduleExpiry();
+    await this.sweepTabs();
+  }
+
+  scheduleExpiry() {
+    this.clearTimer(this.expiryTimer);
+    this.expiryTimer = null;
+    if (!this.policy?.focus) return;
+
+    const wait = this.policy.focus.ends_at_ms - this.now().getTime();
+    // setTimeout cannot exceed a signed 32-bit delay; the keep-alive alarm covers long sessions.
+    if (wait < 2 ** 31 - 1) this.expiryTimer = this.setTimer(() => void this.checkPolicyExpiry(), Math.max(wait, 0) + 50);
+  }
+
+  /** Focus ends on its own deadline, on this machine's clock, with or without the agent. */
+  async checkPolicyExpiry() {
+    const focus = this.policy?.focus;
+    if (focus && focus.ends_at_ms <= this.now().getTime()) {
+      await this.applyPolicy({ ...this.policy, version: `${this.policy.version}:expired`, focus: null });
+    }
+  }
+
+  /**
+   * Rules only affect new navigations, so already-open tabs are moved on to the
+   * blocked page, and tabs parked there are sent back once their site is allowed.
+   */
+  async sweepTabs() {
+    const nowMs = this.now().getTime();
+    const tabs = await this.chrome.tabs.query({}).catch(() => []);
+
+    for (const tab of tabs) {
+      if (tab.incognito || !Number.isInteger(tab.id) || tab.id < 0 || !tab.url) continue;
+
+      const parked = parseBlockedUrl(this.blockedPage, tab.url);
+      const target = parked?.url ?? tab.url;
+      const decision = evaluate(target, this.policy, nowMs);
+
+      if (parked && !decision.blocked) {
+        await this.chrome.tabs.update(tab.id, { url: parked.url }).catch(() => {});
+      } else if (decision.blocked) {
+        const wanted = blockedPageUrl(this.blockedPage, decision.reason, target);
+        if (tab.url !== wanted) await this.chrome.tabs.update(tab.id, { url: wanted }).catch(() => {});
+      }
+    }
+  }
+
   // --- commands ---------------------------------------------------------
 
   async onHostMessage(message) {
@@ -269,6 +358,11 @@ export class BrowserBridge {
 
     if (message.type === 'browser.request_snapshot') {
       this.scheduleSnapshot(0);
+      return;
+    }
+
+    if (message.type === 'policy.update') {
+      await this.applyPolicy(parsePolicy(message.payload));
       return;
     }
 
