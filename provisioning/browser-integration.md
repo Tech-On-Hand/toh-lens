@@ -44,6 +44,8 @@ Chrome and Edge ignore force-installed extensions hosted anywhere but their stor
 
 To try the extension by hand, use `chrome://extensions` -> Developer mode -> Load unpacked. Current Chrome ignores the `--load-extension` command-line flag; the test loads the extension through the DevTools protocol instead.
 
+`node e2e/full-stack.mjs` (repo root) covers the other link: the Student Agent's real bridge and sync code against a real Laravel server on a throwaway SQLite database. A fake extension reports tabs and a navigation, a teacher sees the active tab and issues a command, the agent polls and forwards it, the result comes back, and after sign-out the same student session is refused. It never touches your MySQL data or Windows Credential Manager.
+
 ## Verification checklist
 
 The end-to-end test above covers the browser side. Nothing below has been run on a real school machine yet, and the parts that depend on the real Student Agent, the Teacher app, and Windows policy are untested.

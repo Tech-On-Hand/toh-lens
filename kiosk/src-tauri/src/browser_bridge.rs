@@ -686,3 +686,6 @@ mod tests {
         assert!(!is_permanent_rejection(None));
     }
 }
+
+#[cfg(test)]
+mod full_stack;
