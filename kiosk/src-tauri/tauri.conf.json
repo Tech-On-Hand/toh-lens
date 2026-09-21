@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "kiosk",
+  "productName": "TOH Klas Student",
   "version": "0.1.0",
   "identifier": "com.techonhand.kiosk",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "TOH Lens Kiosk (dev)",
+        "title": "TOH Klas Student (dev)",
         "width": 1280,
         "height": 800
       }

@@ -15,6 +15,21 @@ fn set(conn: &Connection, key: &str, value: &str) -> rusqlite::Result<()> {
     Ok(())
 }
 
+pub fn get_or_create_device_uuid(conn: &Connection) -> rusqlite::Result<String> {
+    if let Some(uuid) = get(conn, "device_uuid")? {
+        return Ok(uuid);
+    }
+
+    let uuid = uuid::Uuid::new_v4().to_string();
+    set(conn, "device_uuid", &uuid)?;
+    Ok(uuid)
+}
+
+pub fn delete_api_token(conn: &Connection) -> rusqlite::Result<()> {
+    conn.execute("DELETE FROM app_config WHERE key = 'api_token'", [])?;
+    Ok(())
+}
+
 pub fn get_api_base_url(conn: &Connection) -> rusqlite::Result<Option<String>> {
     get(conn, "api_base_url")
 }
@@ -29,6 +44,9 @@ pub fn get_config(conn: &Connection) -> rusqlite::Result<Option<AppConfig>> {
     let computer_name = get(conn, "computer_name")?;
     let api_base_url = get(conn, "api_base_url")?;
     let last_roster_synced_at = get(conn, "last_roster_synced_at")?;
+    let device_uuid = get(conn, "device_uuid")?;
+    let classroom_id = get(conn, "classroom_id")?.and_then(|value| value.parse().ok());
+    let configuration_version = get(conn, "configuration_version")?.and_then(|value| value.parse().ok()).unwrap_or(1);
 
     match (school_id, computer_id, computer_name, api_base_url) {
         (Some(school_id), Some(computer_id), Some(computer_name), Some(api_base_url)) => {
@@ -38,6 +56,9 @@ pub fn get_config(conn: &Connection) -> rusqlite::Result<Option<AppConfig>> {
                 computer_name,
                 api_base_url,
                 last_roster_synced_at,
+                device_uuid,
+                classroom_id,
+                configuration_version,
             }))
         }
         _ => Ok(None),
@@ -53,13 +74,44 @@ pub fn save_provisioning(
     school_id: i64,
     computer_id: i64,
     computer_name: &str,
+    device_uuid: Option<&str>,
+    classroom_id: Option<i64>,
+    configuration_version: i64,
 ) -> rusqlite::Result<()> {
     set(conn, "api_base_url", api_base_url)?;
-    set(conn, "api_token", api_token)?;
+    if !api_token.is_empty() {
+        set(conn, "api_token", api_token)?;
+    }
     set(conn, "school_id", &school_id.to_string())?;
     set(conn, "computer_id", &computer_id.to_string())?;
     set(conn, "computer_name", computer_name)?;
+    if let Some(device_uuid) = device_uuid {
+        set(conn, "device_uuid", device_uuid)?;
+    }
+    if let Some(classroom_id) = classroom_id {
+        set(conn, "classroom_id", &classroom_id.to_string())?;
+    }
+    set(conn, "configuration_version", &configuration_version.to_string())?;
     Ok(())
+}
+
+pub fn update_configuration(
+    conn: &Connection,
+    school_id: i64,
+    computer_id: i64,
+    computer_name: &str,
+    device_uuid: &str,
+    classroom_id: Option<i64>,
+    configuration_version: i64,
+) -> rusqlite::Result<()> {
+    set(conn, "school_id", &school_id.to_string())?;
+    set(conn, "computer_id", &computer_id.to_string())?;
+    set(conn, "computer_name", computer_name)?;
+    set(conn, "device_uuid", device_uuid)?;
+    if let Some(classroom_id) = classroom_id {
+        set(conn, "classroom_id", &classroom_id.to_string())?;
+    }
+    set(conn, "configuration_version", &configuration_version.to_string())
 }
 
 pub fn set_last_roster_synced_at(conn: &Connection, timestamp: &str) -> rusqlite::Result<()> {

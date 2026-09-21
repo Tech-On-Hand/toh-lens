@@ -9,6 +9,9 @@ pub struct AppConfig {
     pub computer_name: String,
     pub api_base_url: String,
     pub last_roster_synced_at: Option<String>,
+    pub device_uuid: Option<String>,
+    pub classroom_id: Option<i64>,
+    pub configuration_version: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55,6 +58,52 @@ pub struct ComputerMeResponse {
     pub id: i64,
     pub school_id: i64,
     pub name: String,
+    pub device_uuid: Option<String>,
+    pub classroom_id: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct EnrollmentRequest {
+    pub code: String,
+    pub device_uuid: String,
+    pub name: String,
+    pub hostname: String,
+    pub operating_system: String,
+    pub agent_version: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceConfiguration {
+    pub id: i64,
+    pub device_uuid: String,
+    pub school_id: i64,
+    pub classroom_id: Option<i64>,
+    pub name: String,
+    pub configuration_version: i64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct EnrollmentData {
+    pub token: String,
+    pub device: DeviceConfiguration,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ApiEnvelope<T> {
+    pub success: bool,
+    pub data: Option<T>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct HeartbeatRequest {
+    pub hostname: String,
+    pub operating_system: String,
+    pub agent_version: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct HeartbeatData {
+    pub configuration: DeviceConfiguration,
 }
 
 #[derive(Debug, Clone, Deserialize)]

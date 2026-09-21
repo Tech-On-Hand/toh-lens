@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { commandErrorMessage, refreshRoster, saveConfig, seedDemoConfig, seedDemoRoster } from "../lib/commands";
+import { commandErrorMessage, enrollDevice, refreshRoster, seedDemoConfig, seedDemoRoster } from "../lib/commands";
 
 interface SetupScreenProps {
   onComplete: () => void;
@@ -7,7 +7,8 @@ interface SetupScreenProps {
 
 export function SetupScreen({ onComplete }: SetupScreenProps) {
   const [apiBaseUrl, setApiBaseUrl] = useState("http://127.0.0.1:8000");
-  const [apiToken, setApiToken] = useState("");
+  const [enrollmentCode, setEnrollmentCode] = useState("");
+  const [deviceName, setDeviceName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -17,7 +18,7 @@ export function SetupScreen({ onComplete }: SetupScreenProps) {
     setError(null);
 
     try {
-      await saveConfig(apiBaseUrl, apiToken);
+      await enrollDevice(apiBaseUrl, enrollmentCode, deviceName);
       await refreshRoster();
       onComplete();
     } catch (err) {
@@ -44,8 +45,8 @@ export function SetupScreen({ onComplete }: SetupScreenProps) {
 
   return (
     <div className="screen setup-screen">
-      <h1>TOH Lens — Kiosk Setup</h1>
-      <p>Enter this computer's connection details. This only needs to be done once.</p>
+      <h1>TOH Klas — Student Agent</h1>
+      <p>Enroll this computer using the one-time code supplied by an administrator.</p>
 
       <form onSubmit={handleSave} className="setup-form">
         <label>
@@ -60,12 +61,21 @@ export function SetupScreen({ onComplete }: SetupScreenProps) {
         </label>
 
         <label>
-          Computer API token
+          Device name
           <input
-            type="password"
-            value={apiToken}
-            onChange={(e) => setApiToken(e.currentTarget.value)}
-            placeholder="Issued by TOH technical staff"
+            value={deviceName}
+            onChange={(e) => setDeviceName(e.currentTarget.value)}
+            placeholder="Lab PC 01"
+            required
+          />
+        </label>
+
+        <label>
+          Enrollment code
+          <input
+            value={enrollmentCode}
+            onChange={(e) => setEnrollmentCode(e.currentTarget.value.toUpperCase())}
+            placeholder="AB12-CD34"
             required
           />
         </label>
@@ -73,7 +83,7 @@ export function SetupScreen({ onComplete }: SetupScreenProps) {
         {error && <p className="setup-error">{error}</p>}
 
         <button type="submit" disabled={isSaving}>
-          {isSaving ? "Connecting…" : "Save & Continue"}
+          {isSaving ? "Enrolling…" : "Enroll Device"}
         </button>
       </form>
 

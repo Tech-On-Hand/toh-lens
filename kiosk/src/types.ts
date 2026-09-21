@@ -4,6 +4,9 @@ export interface AppConfig {
   computer_name: string;
   api_base_url: string;
   last_roster_synced_at: string | null;
+  device_uuid: string | null;
+  classroom_id: number | null;
+  configuration_version: number;
 }
 
 export interface StudentSummary {

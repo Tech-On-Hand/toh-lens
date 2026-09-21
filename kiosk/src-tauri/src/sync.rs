@@ -20,7 +20,7 @@ pub async fn try_sync(state: &AppState) -> SyncResult {
     let (base_url, token) = {
         let conn = state.db.lock().unwrap();
         let base_url = config_repo::get_api_base_url(&conn).ok().flatten();
-        let token = config_repo::get_api_token(&conn).ok().flatten();
+        let token = crate::credential_store::get_token();
         (base_url, token)
     };
 
@@ -78,6 +78,36 @@ pub async fn try_sync(state: &AppState) -> SyncResult {
             synced: 0,
             failed: attempted,
         },
+    }
+}
+
+pub async fn send_heartbeat(state: &AppState) {
+    let (base_url, token) = {
+        let conn = state.db.lock().unwrap();
+        (
+            config_repo::get_api_base_url(&conn).ok().flatten(),
+            crate::credential_store::get_token(),
+        )
+    };
+    let (Some(base_url), Some(token)) = (base_url, token) else { return };
+    let request = crate::models::HeartbeatRequest {
+        hostname: std::env::var("COMPUTERNAME").unwrap_or_else(|_| "Windows PC".into()),
+        operating_system: format!("Windows {}", std::env::consts::ARCH),
+        agent_version: env!("CARGO_PKG_VERSION").into(),
+    };
+
+    if let Ok(data) = crate::api_client::heartbeat(&state.http, &base_url, &token, request).await {
+        let config = data.configuration;
+        let conn = state.db.lock().unwrap();
+        let _ = config_repo::update_configuration(
+            &conn,
+            config.school_id,
+            config.id,
+            &config.name,
+            &config.device_uuid,
+            config.classroom_id,
+            config.configuration_version,
+        );
     }
 }
 

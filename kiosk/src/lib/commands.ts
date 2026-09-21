@@ -16,6 +16,10 @@ export function saveConfig(apiBaseUrl: string, apiToken: string): Promise<AppCon
   return invoke("save_config", { apiBaseUrl, apiToken });
 }
 
+export function enrollDevice(apiBaseUrl: string, enrollmentCode: string, deviceName: string): Promise<AppConfig> {
+  return invoke("enroll_device", { apiBaseUrl, enrollmentCode, deviceName });
+}
+
 export function getRosterCacheStatus(): Promise<RosterStatus> {
   return invoke("get_roster_cache_status");
 }

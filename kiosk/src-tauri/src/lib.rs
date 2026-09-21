@@ -1,5 +1,6 @@
 mod api_client;
 mod commands;
+mod credential_store;
 mod db;
 mod models;
 mod shell_handoff;
@@ -22,6 +23,7 @@ pub fn run() {
             let db_path = app_dir.join("toh_lens.sqlite");
 
             let connection = db::open(&db_path).expect("failed to open local database");
+            credential_store::migrate_legacy_token(&connection);
             let state = AppState::new(connection);
             app.manage(state.clone());
 
@@ -29,6 +31,7 @@ pub fn run() {
                 let mut interval = tokio::time::interval(SYNC_INTERVAL);
                 loop {
                     interval.tick().await;
+                    sync::send_heartbeat(&state).await;
                     sync::try_sync(&state).await;
                 }
             });
@@ -41,6 +44,7 @@ pub fn run() {
         builder = builder.invoke_handler(tauri::generate_handler![
             commands::get_config,
             commands::save_config,
+            commands::enroll_device,
             commands::get_roster_cache_status,
             commands::refresh_roster,
             commands::validate_admission_number,
@@ -58,6 +62,7 @@ pub fn run() {
         builder = builder.invoke_handler(tauri::generate_handler![
             commands::get_config,
             commands::save_config,
+            commands::enroll_device,
             commands::get_roster_cache_status,
             commands::refresh_roster,
             commands::validate_admission_number,

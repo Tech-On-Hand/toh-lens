@@ -25,12 +25,70 @@ pub async fn save_config(state: State<'_, AppState>, api_base_url: String, api_t
         .map_err(|e| format!("Could not reach server or token is invalid: {e}"))?;
 
     let conn = state.db.lock().unwrap();
-    config_repo::save_provisioning(&conn, &api_base_url, &api_token, computer.school_id, computer.id, &computer.name)
+    crate::credential_store::save_token(&api_token)?;
+    config_repo::save_provisioning(
+        &conn,
+        &api_base_url,
+        "",
+        computer.school_id,
+        computer.id,
+        &computer.name,
+        computer.device_uuid.as_deref(),
+        computer.classroom_id,
+        1,
+    )
         .map_err(|e| e.to_string())?;
 
     config_repo::get_config(&conn)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "failed to read back saved configuration".to_string())
+}
+
+#[tauri::command]
+pub async fn enroll_device(
+    state: State<'_, AppState>,
+    api_base_url: String,
+    enrollment_code: String,
+    device_name: String,
+) -> Result<AppConfig, String> {
+    let api_base_url = api_base_url.trim().to_string();
+    let device_uuid = {
+        let conn = state.db.lock().unwrap();
+        config_repo::get_or_create_device_uuid(&conn).map_err(|e| e.to_string())?
+    };
+    let hostname = std::env::var("COMPUTERNAME").unwrap_or_else(|_| "Windows PC".into());
+    let result = crate::api_client::enroll_device(
+        &state.http,
+        &api_base_url,
+        crate::models::EnrollmentRequest {
+            code: enrollment_code.trim().to_string(),
+            device_uuid,
+            name: device_name.trim().to_string(),
+            hostname,
+            operating_system: format!("Windows {}", std::env::consts::ARCH),
+            agent_version: env!("CARGO_PKG_VERSION").into(),
+        },
+    )
+    .await?;
+
+    crate::credential_store::save_token(&result.token)?;
+    let conn = state.db.lock().unwrap();
+    config_repo::save_provisioning(
+        &conn,
+        &api_base_url,
+        "",
+        result.device.school_id,
+        result.device.id,
+        &result.device.name,
+        Some(&result.device.device_uuid),
+        result.device.classroom_id,
+        result.device.configuration_version,
+    )
+    .map_err(|e| e.to_string())?;
+
+    config_repo::get_config(&conn)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "failed to read back enrolled device configuration".to_string())
 }
 
 #[tauri::command]
@@ -52,7 +110,7 @@ pub async fn refresh_roster(state: State<'_, AppState>) -> Result<RosterStatus, 
     let (base_url, token, school_id) = {
         let conn = state.db.lock().unwrap();
         let config = config_repo::get_config(&conn).map_err(|e| e.to_string())?.ok_or(NOT_CONFIGURED_ERROR)?;
-        let token = config_repo::get_api_token(&conn).map_err(|e| e.to_string())?.ok_or(NOT_CONFIGURED_ERROR)?;
+        let token = crate::credential_store::get_token().ok_or(NOT_CONFIGURED_ERROR)?;
         (config.api_base_url, token, config.school_id)
     };
 
@@ -175,7 +233,8 @@ pub async fn get_sync_status(state: State<'_, AppState>) -> Result<SyncStatus, S
 #[tauri::command]
 pub fn seed_demo_config(state: State<AppState>) -> Result<AppConfig, String> {
     let conn = state.db.lock().unwrap();
-    config_repo::save_provisioning(&conn, "http://127.0.0.1:8000", "", 1, 1, "Dev Kiosk").map_err(|e| e.to_string())?;
+    config_repo::save_provisioning(&conn, "http://127.0.0.1:8000", "", 1, 1, "Dev Kiosk", None, None, 1)
+        .map_err(|e| e.to_string())?;
 
     config_repo::get_config(&conn)
         .map_err(|e| e.to_string())?
