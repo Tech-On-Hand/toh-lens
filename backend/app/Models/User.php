@@ -85,4 +85,13 @@ class User extends Authenticatable implements PasskeyUser
         return $this->isSchoolAdministrator($classroom->school_id)
             || $this->classrooms()->whereKey($classroom->id)->exists();
     }
+
+    public function canControlClassroom(Classroom $classroom): bool
+    {
+        return $this->isSchoolAdministrator($classroom->school_id)
+            || $this->classrooms()
+                ->whereKey($classroom->id)
+                ->whereIn('classroom_user.role', ['primary_teacher', 'assistant_teacher'])
+                ->exists();
+    }
 }

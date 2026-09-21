@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('devices:mark-offline')->everyMinute()->withoutOverlapping();
+Schedule::command('device-commands:expire')->everyMinute()->withoutOverlapping();

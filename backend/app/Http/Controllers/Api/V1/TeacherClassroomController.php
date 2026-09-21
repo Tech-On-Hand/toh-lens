@@ -50,7 +50,8 @@ class TeacherClassroomController extends ApiController
             ->with(['loginSessions' => fn ($query) => $query
                 ->where('status', 'active')
                 ->with('student:id,full_name,admission_number')
-                ->latest('login_time')])
+                ->latest('login_time'),
+                'browserTabs' => fn ($query) => $query->where('is_active', true)->latest('observed_at')])
             ->orderBy('name')
             ->get();
 
@@ -63,11 +64,36 @@ class TeacherClassroomController extends ApiController
             'agent_version' => $device->agent_version,
             'status' => $device->isOnline() ? 'online' : 'offline',
             'last_seen_at' => $device->last_seen_at?->toIso8601String(),
+            'active_tab' => $device->browserTabs->first() ? [
+                'tab_id' => $device->browserTabs->first()->browser_tab_id,
+                'url' => $device->browserTabs->first()->url,
+                'title' => $device->browserTabs->first()->title,
+                'observed_at' => $device->browserTabs->first()->observed_at->toIso8601String(),
+            ] : null,
             'active_session' => $device->loginSessions->first() ? [
                 'uuid' => $device->loginSessions->first()->uuid,
                 'student' => $device->loginSessions->first()->student,
                 'started_at' => $device->loginSessions->first()->login_time->toIso8601String(),
             ] : null,
         ]));
+    }
+
+    public function browserTabs(Request $request, Classroom $classroom, Computer $device): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+        abort_unless($user->canViewClassroom($classroom), 403);
+        abort_unless($device->classroom_id === $classroom->id && $device->revoked_at === null, 404);
+
+        return $this->success($device->browserTabs()->orderBy('window_id')->orderBy('browser_tab_id')->get()
+            ->map(fn ($tab) => [
+                'tab_id' => $tab->browser_tab_id,
+                'window_id' => $tab->window_id,
+                'browser' => $tab->browser,
+                'url' => $tab->url,
+                'title' => $tab->title,
+                'is_active' => $tab->is_active,
+                'observed_at' => $tab->observed_at->toIso8601String(),
+            ]));
     }
 }

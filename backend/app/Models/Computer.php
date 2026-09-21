@@ -47,6 +47,21 @@ class Computer extends Model
         return $this->hasMany(LoginSession::class);
     }
 
+    public function browserTabs(): HasMany
+    {
+        return $this->hasMany(BrowserTab::class);
+    }
+
+    public function commands(): HasMany
+    {
+        return $this->hasMany(DeviceCommand::class);
+    }
+
+    public function activeSession(): ?LoginSession
+    {
+        return $this->loginSessions()->where('status', 'active')->latest('login_time')->first();
+    }
+
     public function isOnline(): bool
     {
         return $this->revoked_at === null

@@ -9,12 +9,15 @@ use App\Http\Controllers\Api\V1\Admin\DeviceController as AdminDeviceController;
 use App\Http\Controllers\Api\V1\Admin\EnrollmentCodeController;
 use App\Http\Controllers\Api\V1\Admin\InvitationController;
 use App\Http\Controllers\Api\V1\AuthController as V1AuthController;
+use App\Http\Controllers\Api\V1\DeviceBrowserController;
+use App\Http\Controllers\Api\V1\DeviceCommandController;
 use App\Http\Controllers\Api\V1\DeviceController as V1DeviceController;
 use App\Http\Controllers\Api\V1\DeviceEnrollmentController;
 use App\Http\Controllers\Api\V1\DeviceRosterController;
 use App\Http\Controllers\Api\V1\DeviceSessionController;
 use App\Http\Controllers\Api\V1\InvitationAcceptanceController;
 use App\Http\Controllers\Api\V1\TeacherClassroomController;
+use App\Http\Controllers\Api\V1\TeacherCommandController;
 
 Route::get('/ping', fn () => response()->json(['ok' => true]));
 
@@ -34,12 +37,18 @@ Route::prefix('v1')->group(function () {
         Route::post('heartbeat', [V1DeviceController::class, 'heartbeat']);
         Route::get('roster', [DeviceRosterController::class, 'index']);
         Route::post('student-sessions/sync', [DeviceSessionController::class, 'store']);
+        Route::post('browser/events', [DeviceBrowserController::class, 'store']);
+        Route::get('commands', [DeviceCommandController::class, 'index']);
+        Route::post('commands/{uuid}/result', [DeviceCommandController::class, 'result']);
     });
 
     Route::middleware(['auth:sanctum', 'teacher.token'])->group(function () {
         Route::post('auth/logout', [V1AuthController::class, 'logout']);
         Route::get('teacher/classrooms', [TeacherClassroomController::class, 'index']);
         Route::get('teacher/classrooms/{classroom}/devices', [TeacherClassroomController::class, 'devices']);
+        Route::get('teacher/classrooms/{classroom}/devices/{device}/browser-tabs', [TeacherClassroomController::class, 'browserTabs']);
+        Route::post('teacher/classrooms/{classroom}/devices/{device}/commands', [TeacherCommandController::class, 'store'])->middleware('throttle:60,1');
+        Route::get('teacher/classrooms/{classroom}/devices/{device}/commands/{uuid}', [TeacherCommandController::class, 'show']);
 
         Route::prefix('admin')->group(function () {
             Route::get('classrooms', [AdminClassroomController::class, 'index']);
