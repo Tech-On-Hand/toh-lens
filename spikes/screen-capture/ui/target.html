@@ -1,0 +1,30 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>TOHKLAS-SPIKE-TARGET</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #10231a; color: #dff5e6; font: 15px/1.35 Consolas, monospace; }
+  canvas { display: block; }
+</style>
+<canvas id="c"></canvas>
+<script>
+  // Roughly what a lesson looks like: a scrolling page of small text plus something moving.
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const words = 'fractions numerator denominator equivalent simplify compare order decimal percent ratio'.split(' ');
+  const lines = Array.from({ length: 200 }, (_, i) => `${String(i).padStart(3, '0')}  ` + Array.from({ length: 9 }, (_, j) => words[(i * 7 + j * 3) % words.length]).join(' '));
+  let frame = 0;
+  function draw() {
+    canvas.width = innerWidth; canvas.height = innerHeight;
+    ctx.fillStyle = '#10231a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#dff5e6'; ctx.font = '15px Consolas, monospace';
+    const offset = (frame * 2) % (lines.length * 20);
+    for (let y = 0; y < canvas.height + 20; y += 20) ctx.fillText(lines[(Math.floor((offset + y) / 20)) % lines.length], 16, y - (offset % 20));
+    ctx.fillStyle = `hsl(${frame % 360} 80% 55%)`;
+    ctx.fillRect(canvas.width - 140 + 60 * Math.sin(frame / 20), canvas.height / 2 - 40, 80, 80);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 28px Consolas, monospace';
+    ctx.fillText(`frame ${frame}`, 16, 40);
+    frame += 1;
+    requestAnimationFrame(draw);
+  }
+  draw();
+</script>

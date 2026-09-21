@@ -1,0 +1,83 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>capture</title>
+<script>
+  const params = new URLSearchParams(location.search);
+  const base = `http://127.0.0.1:${params.get('port')}`;
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const post = (path, body) => fetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).catch(() => {});
+  const log = (event, data = {}) => post('/log', { at: 'student', event, ...data });
+
+  async function poll(role, handler) {
+    let since = 0;
+    for (;;) {
+      const { messages } = await (await fetch(`${base}/poll/${role}?since=${since}`)).json();
+      for (const message of messages) { since = Math.max(since, message.n); await handler(message.data); }
+      await sleep(50);
+    }
+  }
+
+  async function main() {
+    log('page-loaded', { visibility: document.visibilityState, userAgent: navigator.userAgent });
+
+    // Is this window's JavaScript still running normally while hidden?
+    let ticks = 0;
+    setInterval(() => log('alive', { ticks: ++ticks, visibility: document.visibilityState }), 3000);
+
+    if (params.get('skip')) { log('capture-skipped'); await sleep(9000); return post('/report', { ok: false, reason: 'skip mode: heartbeats only' }); }
+
+    // No picker is shown: the browser argument answers it.
+    log('requesting-capture');
+    window.__state = 'requesting';
+    const started = performance.now();
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 15 }, audio: false });
+    window.__state = 'resolved';
+    const [track] = stream.getVideoTracks();
+    track.contentHint = 'detail'; // screen text: prefer sharpness over frame rate
+    log('capture-started', { ms: Math.round(performance.now() - started), settings: track.getSettings(), label: track.label });
+
+    const pc = new RTCPeerConnection({ iceServers: [] });
+    pc.onicecandidate = (event) => event.candidate && post('/signal/recv', { candidate: event.candidate });
+    pc.onconnectionstatechange = () => log('connection-state', { state: pc.connectionState });
+    const sender = pc.addTrack(track, stream);
+
+    async function setMode(mode) {
+      const parameters = sender.getParameters();
+      if (!parameters.encodings || parameters.encodings.length === 0) parameters.encodings = [{}];
+      const [encoding] = parameters.encodings;
+      if (mode === 'thumb') Object.assign(encoding, { scaleResolutionDownBy: 4, maxBitrate: 150_000, maxFramerate: 2 });
+      else Object.assign(encoding, { scaleResolutionDownBy: 1, maxBitrate: 2_500_000, maxFramerate: 15 });
+      await sender.setParameters(parameters);
+      log('mode', { mode });
+    }
+
+    const control = pc.createDataChannel('control');
+    control.onmessage = (event) => setMode(JSON.parse(event.data).mode);
+    await setMode('thumb'); // start cheap
+
+    poll('caps', async (message) => {
+      if (message.answer) await pc.setRemoteDescription(message.answer);
+      if (message.candidate) await pc.addIceCandidate(message.candidate);
+    });
+
+    await pc.setLocalDescription(await pc.createOffer());
+    await post('/signal/recv', { offer: pc.localDescription });
+
+    // Sender-side view of what the encoder is doing.
+    for (;;) {
+      await sleep(2000);
+      const stats = await sender.getStats();
+      stats.forEach((report) => {
+        if (report.type === 'outbound-rtp' && report.kind === 'video') {
+          log('outbound', {
+            framesEncoded: report.framesEncoded, framesPerSecond: report.framesPerSecond, width: report.frameWidth, height: report.frameHeight,
+            bytesSent: report.bytesSent, encoder: report.encoderImplementation, powerEfficient: report.powerEfficientEncoder,
+            limit: report.qualityLimitationReason,
+          });
+        }
+      });
+    }
+  }
+
+  main().catch((error) => { window.__state = `error: ${error}`; log('error', { message: String(error), name: error?.name }); });
+</script>

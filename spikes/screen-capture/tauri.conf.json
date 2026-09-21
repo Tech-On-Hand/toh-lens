@@ -1,0 +1,8 @@
+{
+  "productName": "Screen Capture Spike",
+  "version": "0.0.0",
+  "identifier": "com.techonhand.spike",
+  "build": { "frontendDist": "ui" },
+  "app": { "windows": [], "security": { "csp": null } },
+  "bundle": { "active": false, "icon": ["../../kiosk/src-tauri/icons/icon.ico"] }
+}

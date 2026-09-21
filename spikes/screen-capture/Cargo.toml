@@ -1,0 +1,11 @@
+[package]
+name = "screen-capture-spike"
+version = "0.0.0"
+description = "Throwaway spike: can a hidden WebView2 capture the screen and stream it over WebRTC?"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }

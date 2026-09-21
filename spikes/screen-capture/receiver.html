@@ -1,0 +1,101 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>receiver</title>
+<video id="v" autoplay muted playsinline></video>
+<script>
+  // Plays the teacher's role: receives the student's screen, asks for thumbnail then
+  // full-view quality, and measures what actually arrives in each mode.
+  const base = location.origin;
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const post = (path, body) => fetch(base + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).catch(() => {});
+  const log = (event, data = {}) => post('/log', { at: 'teacher', event, ...data });
+
+  async function poll(role, handler) {
+    let since = 0;
+    for (;;) {
+      const { messages } = await (await fetch(`${base}/poll/${role}?since=${since}`)).json();
+      for (const message of messages) { since = Math.max(since, message.n); await handler(message.data); }
+      await sleep(50);
+    }
+  }
+
+  const pc = new RTCPeerConnection({ iceServers: [] });
+  let control = null;
+  pc.onicecandidate = (event) => event.candidate && post('/signal/caps', { candidate: event.candidate });
+  pc.onconnectionstatechange = () => log('connection-state', { state: pc.connectionState });
+  pc.ondatachannel = (event) => { control = event.channel; };
+  pc.ontrack = (event) => { document.getElementById('v').srcObject = event.streams[0]; log('track', { kind: event.track.kind }); };
+
+  poll('recv', async (message) => {
+    if (message.offer) {
+      await pc.setRemoteDescription(message.offer);
+      await pc.setLocalDescription(await pc.createAnswer());
+      await post('/signal/caps', { answer: pc.localDescription });
+    }
+    if (message.candidate) await pc.addIceCandidate(message.candidate);
+  });
+
+  async function inbound() {
+    const stats = await pc.getStats();
+    const out = { codec: null, path: null };
+    const byId = {};
+    stats.forEach((report) => { byId[report.id] = report; });
+    stats.forEach((report) => {
+      if (report.type === 'inbound-rtp' && report.kind === 'video') {
+        Object.assign(out, {
+          bytes: report.bytesReceived, frames: report.framesDecoded, width: report.frameWidth, height: report.frameHeight,
+          fps: report.framesPerSecond, decoder: report.decoderImplementation, freezes: report.freezeCount,
+        });
+        out.codec = byId[report.codecId]?.mimeType ?? null;
+      }
+      if (report.type === 'transport' && report.selectedCandidatePairId) {
+        const pair = byId[report.selectedCandidatePairId];
+        out.path = { local: byId[pair.localCandidateId]?.candidateType, remote: byId[pair.remoteCandidateId]?.candidateType, protocol: byId[pair.localCandidateId]?.protocol };
+        out.rttMs = Math.round((pair.currentRoundTripTime ?? 0) * 1000);
+      }
+    });
+    return out;
+  }
+
+  async function measure(mode, seconds) {
+    control.send(JSON.stringify({ mode }));
+    await sleep(2500); // let the encoder and bandwidth estimate settle
+    await post('/phase', { mode, edge: 'start' });
+    const a = await inbound();
+    await sleep(seconds * 1000);
+    const b = await inbound();
+    await post('/phase', { mode, edge: 'end' });
+    return {
+      mode, seconds,
+      kbps: Math.round(((b.bytes - a.bytes) * 8) / seconds / 1000),
+      decodedFps: +((b.frames - a.frames) / seconds).toFixed(1),
+      size: `${b.width}x${b.height}`,
+    };
+  }
+
+  (async () => {
+    // Wait for the connection, the data channel and the first decoded frame.
+    for (let i = 0; i < 300 && !(pc.connectionState === 'connected' && control?.readyState === 'open'); i += 1) await sleep(100);
+    if (pc.connectionState !== 'connected') return post('/report', { ok: false, reason: `connection state ${pc.connectionState}` });
+    for (let i = 0; i < 100 && !((await inbound()).frames > 0); i += 1) await sleep(100);
+
+    const first = await inbound();
+    const results = [];
+    results.push(await measure('thumb', 8));
+    results.push(await measure('full', 8));
+    results.push(await measure('thumb', 6)); // switching back proves it is adaptive, not one-way
+    const last = await inbound();
+
+    // Draw what arrived so the resulting picture can be judged: only its average brightness is sent back.
+    const video = document.getElementById('v');
+    const canvas = document.createElement('canvas');
+    canvas.width = 64; canvas.height = 36;
+    const context = canvas.getContext('2d');
+    context.drawImage(video, 0, 0, 64, 36);
+    const pixels = context.getImageData(0, 0, 64, 36).data;
+    let sum = 0;
+    for (let i = 0; i < pixels.length; i += 4) sum += pixels[i] + pixels[i + 1] + pixels[i + 2];
+
+    await post('/report', { ok: true, path: last.path, codec: first.codec, decoder: last.decoder, rttMs: last.rttMs, freezes: last.freezes, results, meanBrightness: Math.round(sum / (pixels.length / 4) / 3) });
+  })().catch((error) => post('/report', { ok: false, reason: String(error) }));
+</script>
