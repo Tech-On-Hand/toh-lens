@@ -18,6 +18,8 @@ Chrome/Edge managed extension, native messaging host, current-tab activity, open
 
 Allow/block rules, focus sessions, offline policy cache, audit records, and reversible browser enforcement. Stronger Windows/network enforcement remains optional and separately reviewed.
 
+**Status:** built and tested in software: backend policy and audit APIs, agent policy sync and offline cache, extension enforcement (verified in real Chrome 153 and Edge 153, including offline enforcement and automatic focus expiry), and a Teacher app panel. Not yet run with the real agent on a school machine, the Teacher UI has not been looked at in a running window, and there is no audit screen yet. See `provisioning/browser-integration.md`.
+
 ## Milestone 4 — Screen collaboration
 
 Windows Graphics Capture, adaptive WebRTC thumbnails/full view, teacher broadcast, signaling, TURN deployment, and visible privacy indicators.

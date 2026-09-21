@@ -65,10 +65,29 @@ The end-to-end test above covers the browser side. Nothing below has been run on
 - **`chrome://extensions` shows "Native host has exited" / "Specified native messaging host not found":** the registry key or the host manifest path is wrong, or the extension ID does not match `allowed_origins`.
 - **Host works in a test but not in the browser:** the host must run as the same Windows account as the agent, because the bridge file lives in that account's `%LOCALAPPDATA%`.
 
+## Blocked sites and focus sessions (Milestone 3)
+
+Teachers can block sites for a classroom (school administrators can block them school-wide) and start a **focus session**: only the listed sites work, on every computer in the classroom, until the time is up or the teacher ends it. Blocked sites stay blocked during focus. The Teacher app has a "Focus & blocked sites" panel; the API is described in `toh-klas-contracts.md`.
+
+How it behaves:
+
+- **Enforced by the browser, not the network.** The extension installs `declarativeNetRequest` rules for top-level page navigations. They keep working while the extension's worker is asleep and while the Student Agent or the network is unavailable. A blocked page shows a plain explanation and a "Go back" button.
+- **Reversible.** Tabs already open on a newly blocked site are moved to the blocked page, and returned to the address they left when the rule is lifted or focus ends.
+- **Deadlines use the server's clock.** The agent converts each focus deadline to this computer's clock using the server's "now", so a wrong PC clock cannot extend or shorten a session. Focus ends on its own at the deadline even when offline; the agent checks every 3 seconds and the extension has its own timer plus a 30-second backup alarm.
+- **Audited.** Focus start/end/expiry, rule changes, browser commands (with the student's session), and device changes are recorded in an append-only log, readable by school administrators through `GET /api/v1/admin/audit`. There is no screen for it yet. Blocked attempts are stored with the student's browsing history.
+- **New permission.** Enforcement needs the extension to have access to all websites (`host_permissions`). The Chrome Web Store and Edge Add-ons review this closely, so be ready to explain it. The extension description tells students what it does.
+
+What it does not do:
+
+- **Only page navigations are policed.** Images, scripts and embedded frames on an allowed page still load, so an allowed site that embeds or proxies other content can lead elsewhere. Do not allow translation, proxy, cache or VPN sites, and consider blocking them.
+- **Domain rules only.** A rule covers a domain and its subdomains. It does not match paths, keywords, or IP addresses, and non-ASCII domains must be entered in their `xn--` form.
+- **A teacher's "open page" command is also subject to focus.** Opening a site outside the allow-list during focus lands on the blocked page.
+- **Other browsers, private windows, and anything that bypasses the extension are not covered** (see Limits). Stronger enforcement at the Windows or network level is deliberately not part of this milestone and would need its own review.
+
 ## Limits
 
 - **The student is the local adversary and shares the agent's Windows account.** Anything the agent can read, so can the student, including `bridge.json`. The bridge stops web pages and other machines, not a determined student with local access. Real protection is the kiosk hardening (no Task Manager, no shell, restricted programs) and, later, Milestone 3 enforcement.
 - **Other browsers are not covered.** A student who can start Firefox or another browser is unmonitored. Restrict which programs can run, or block them.
 - **Private windows are invisible by design**, so the script disables them by policy. Without that policy they are an easy bypass.
 - **Delivery is at-most-once.** If the agent or browser crashes mid-command, the command expires and the teacher re-issues it; it never runs twice.
-- **Commands take a few seconds.** The agent polls about every 3 seconds while a student is signed in and the extension is connected. A push nudge over Reverb is reserved for later.
+- **Policy and commands take a few seconds.** The agent polls about every 3 seconds while a student is signed in and the extension is connected. A push nudge over Reverb is reserved for later.

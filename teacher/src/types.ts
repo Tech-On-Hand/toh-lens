@@ -44,3 +44,17 @@ export interface CommandSummary {
   result: { error?: string } | null;
   expires_at: string;
 }
+
+export interface FocusSession {
+  id: string;
+  name: string | null;
+  allowed_domains: string[];
+  started_at: string;
+  expires_at: string;
+}
+
+export interface ClassroomPolicy {
+  block_rules: { id: number; domain: string; scope: "school" | "classroom" }[];
+  focus: FocusSession | null;
+  server_time: string;
+}

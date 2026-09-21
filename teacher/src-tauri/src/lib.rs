@@ -168,6 +168,41 @@ async fn get_command(state: State<'_, AppState>, classroom_id: i64, device_id: i
     authenticated_get(&state, &format!("api/v1/teacher/classrooms/{classroom_id}/devices/{device_id}/commands/{command_id}")).await
 }
 
+async fn authenticated_send(state: &AppState, method: reqwest::Method, path: &str, body: Option<serde_json::Value>) -> Result<serde_json::Value, String> {
+    let session = current_session(state)?;
+    let mut request = state.http.request(method, endpoint(&session.api_base_url, path)).bearer_auth(&session.token);
+    if let Some(body) = body {
+        request = request.json(&body);
+    }
+    response_data(request.send().await.map_err(|e| e.to_string())?).await
+}
+
+#[tauri::command]
+async fn get_policy(state: State<'_, AppState>, classroom_id: i64) -> Result<serde_json::Value, String> {
+    authenticated_get(&state, &format!("api/v1/teacher/classrooms/{classroom_id}/policy")).await
+}
+
+#[tauri::command]
+async fn start_focus(state: State<'_, AppState>, classroom_id: i64, allowed_domains: Vec<String>, duration_minutes: u32, name: Option<String>) -> Result<serde_json::Value, String> {
+    let body = serde_json::json!({ "allowed_domains": allowed_domains, "duration_minutes": duration_minutes, "name": name });
+    authenticated_send(&state, reqwest::Method::POST, &format!("api/v1/teacher/classrooms/{classroom_id}/focus-sessions"), Some(body)).await
+}
+
+#[tauri::command]
+async fn end_focus(state: State<'_, AppState>, classroom_id: i64, focus_id: String) -> Result<serde_json::Value, String> {
+    authenticated_send(&state, reqwest::Method::POST, &format!("api/v1/teacher/classrooms/{classroom_id}/focus-sessions/{focus_id}/end"), None).await
+}
+
+#[tauri::command]
+async fn add_block_rule(state: State<'_, AppState>, classroom_id: i64, domain: String) -> Result<serde_json::Value, String> {
+    authenticated_send(&state, reqwest::Method::POST, &format!("api/v1/teacher/classrooms/{classroom_id}/block-rules"), Some(serde_json::json!({ "domain": domain }))).await
+}
+
+#[tauri::command]
+async fn remove_block_rule(state: State<'_, AppState>, classroom_id: i64, rule_id: i64) -> Result<serde_json::Value, String> {
+    authenticated_send(&state, reqwest::Method::DELETE, &format!("api/v1/teacher/classrooms/{classroom_id}/block-rules/{rule_id}"), None).await
+}
+
 #[tauri::command]
 async fn revoke_device(state: State<'_, AppState>, device_id: i64) -> Result<(), String> {
     let session = current_session(&state)?;
@@ -241,7 +276,7 @@ pub fn run() {
             session: Arc::new(Mutex::new(None)),
             realtime_generation: Arc::new(AtomicU64::new(0)),
         })
-        .invoke_handler(tauri::generate_handler![login, restore_session, logout, list_classrooms, list_devices, list_browser_tabs, send_command, get_command, revoke_device, start_realtime])
+        .invoke_handler(tauri::generate_handler![login, restore_session, logout, list_classrooms, list_devices, list_browser_tabs, send_command, get_command, get_policy, start_focus, end_focus, add_block_rule, remove_block_rule, revoke_device, start_realtime])
         .run(tauri::generate_context!())
         .expect("error while running TOH Klas Teacher");
 }
