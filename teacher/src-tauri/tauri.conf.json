@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "TOH Klas Teacher",
+  "version": "0.1.0",
+  "identifier": "com.techonhand.toh-klas.teacher",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1430",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [{ "title": "TOH Klas Teacher", "width": 1280, "height": 820, "minWidth": 960, "minHeight": 640 }],
+    "security": { "csp": null }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["../../kiosk/src-tauri/icons/icon.ico", "../../kiosk/src-tauri/icons/icon.png"]
+  }
+}

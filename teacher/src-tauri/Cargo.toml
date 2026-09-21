@@ -1,0 +1,21 @@
+[package]
+name = "toh-klas-teacher"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "toh_klas_teacher_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tokio = { version = "1", features = ["time", "rt", "macros", "sync"] }
+tokio-tungstenite = { version = "0.28", features = ["rustls-tls-native-roots"] }
+futures-util = "0.3"
+keyring = { version = "3", features = ["windows-native"] }

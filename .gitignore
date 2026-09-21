@@ -5,3 +5,6 @@ Thumbs.db
 # Editors (root only — kiosk/backend have their own .gitignore rules)
 /.vscode/
 /.idea/
+
+/teacher/node_modules/
+/teacher/dist/

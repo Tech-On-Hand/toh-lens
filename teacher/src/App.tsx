@@ -1,0 +1,90 @@
+import { listen } from "@tauri-apps/api/event";
+import { useCallback, useEffect, useState } from "react";
+import * as api from "./api";
+import type { Classroom, Device, TeacherSession } from "./types";
+
+function Login({ onLogin }: { onLogin: (session: TeacherSession) => void }) {
+  const [apiBaseUrl, setApiBaseUrl] = useState("http://127.0.0.1:8000");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  return <main className="login-shell">
+    <section className="login-panel">
+      <div className="brand-mark">K</div>
+      <p className="eyebrow">TECH ON HAND</p>
+      <h1>TOH Klas</h1>
+      <p className="muted">Your classroom, clear at a glance.</p>
+      <form onSubmit={async event => {
+        event.preventDefault(); setBusy(true); setError("");
+        try { onLogin(await api.login(apiBaseUrl, email, password)); }
+        catch (reason) { setError(String(reason)); }
+        finally { setBusy(false); }
+      }}>
+        <label>Server<input type="url" value={apiBaseUrl} onChange={e => setApiBaseUrl(e.target.value)} required /></label>
+        <label>Email<input type="email" value={email} onChange={e => setEmail(e.target.value)} required /></label>
+        <label>Password<input type="password" value={password} onChange={e => setPassword(e.target.value)} required /></label>
+        {error && <p className="error">{error}</p>}
+        <button disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
+      </form>
+    </section>
+  </main>;
+}
+
+function ClassroomView({ session, onLogout }: { session: TeacherSession; onLogout: () => void }) {
+  const [classrooms, setClassrooms] = useState<Classroom[]>([]);
+  const [selected, setSelected] = useState<Classroom | null>(null);
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [view, setView] = useState<"grid" | "list">("grid");
+  const [connection, setConnection] = useState("Connecting");
+
+  const refresh = useCallback(async (classroom = selected) => {
+    if (classroom) setDevices(await api.listDevices(classroom.id));
+  }, [selected]);
+
+  useEffect(() => { api.listClassrooms().then(items => { setClassrooms(items); setSelected(items[0] ?? null); }); }, []);
+  useEffect(() => {
+    if (!selected) return;
+    refresh(selected); api.startRealtime(selected.id).then(() => setConnection("Live")).catch(() => setConnection("Reconnecting"));
+    const timer = window.setInterval(() => refresh(selected), 15000);
+    return () => window.clearInterval(timer);
+  }, [selected, refresh]);
+  useEffect(() => { let dispose = () => {}; listen("classroom-event", () => refresh()).then(fn => { dispose = fn; }); return () => dispose(); }, [refresh]);
+
+  const online = devices.filter(device => device.status === "online").length;
+  return <div className="app-shell">
+    <aside>
+      <div className="brand"><div className="brand-mark small">K</div><strong>TOH Klas</strong></div>
+      <p className="nav-label">CLASSROOMS</p>
+      {classrooms.map(classroom => <button key={classroom.id} className={selected?.id === classroom.id ? "room active" : "room"} onClick={() => setSelected(classroom)}>
+        <span>{classroom.name}</span><small>{classroom.school.name}</small>
+      </button>)}
+      <div className="profile"><span>{session.user.name}</span><small>{session.user.email}</small><button onClick={onLogout}>Sign out</button></div>
+    </aside>
+    <main className="classroom-main">
+      <header><div><p className="eyebrow">{selected?.school.name ?? "YOUR SCHOOL"}</p><h1>{selected?.name ?? "No classroom assigned"}</h1></div>
+        <div className="header-actions"><span className={`connection ${connection.toLowerCase()}`}>● {connection}</span><button onClick={() => setView(view === "grid" ? "list" : "grid")}>{view === "grid" ? "List view" : "Grid view"}</button></div>
+      </header>
+      <section className="summary"><div><strong>{devices.length}</strong><span>Devices</span></div><div><strong>{online}</strong><span>Online now</span></div><div><strong>{devices.filter(d => d.active_session).length}</strong><span>Active students</span></div></section>
+      <section className={view === "grid" ? "device-grid" : "device-list"}>
+        {devices.map(device => <article className="device-card" key={device.device_uuid}>
+          <div className="device-head"><strong>{device.name}</strong><span className={`status ${device.status}`}>● {device.status}</span></div>
+          <div className="screen-placeholder"><span>{device.active_session?.student?.full_name?.slice(0, 1) ?? "—"}</span></div>
+          <h3>{device.active_session?.student?.full_name ?? "No active student"}</h3>
+          <p>{device.hostname ?? "Hostname unavailable"} · Agent {device.agent_version ?? "—"}</p>
+          {session.is_administrator && <button className="danger" onClick={async () => { if (confirm(`Revoke ${device.name}?`)) { await api.revokeDevice(device.id); await refresh(); } }}>Revoke</button>}
+        </article>)}
+        {selected && devices.length === 0 && <div className="empty"><h2>No devices yet</h2><p>Use an enrollment code from the web administration area to add a student computer.</p></div>}
+      </section>
+    </main>
+  </div>;
+}
+
+export default function App() {
+  const [session, setSession] = useState<TeacherSession | null | undefined>(undefined);
+  useEffect(() => { api.restoreSession().then(setSession).catch(() => setSession(null)); }, []);
+  if (session === undefined) return <main className="login-shell">Loading TOH Klas…</main>;
+  if (!session) return <Login onLogin={setSession} />;
+  return <ClassroomView session={session} onLogout={async () => { await api.logout(); setSession(null); }} />;
+}
