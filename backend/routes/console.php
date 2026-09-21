@@ -10,3 +10,5 @@ Artisan::command('inspire', function () {
 
 Schedule::command('devices:mark-offline')->everyMinute()->withoutOverlapping();
 Schedule::command('device-commands:expire')->everyMinute()->withoutOverlapping();
+
+Schedule::command('focus-sessions:expire')->everyMinute()->withoutOverlapping();

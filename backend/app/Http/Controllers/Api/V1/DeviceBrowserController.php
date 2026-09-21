@@ -29,7 +29,7 @@ class DeviceBrowserController extends ApiController
             'snapshot.tabs.*.active' => ['required', 'boolean'],
             'events' => ['nullable', 'array', 'max:200'],
             'events.*.uuid' => ['required', 'uuid'],
-            'events.*.type' => ['required', 'in:navigated,activated'],
+            'events.*.type' => ['required', 'in:navigated,activated,blocked'],
             'events.*.url' => ['nullable', 'string', 'max:2048'],
             'events.*.title' => ['nullable', 'string', 'max:500'],
             'events.*.session_uuid' => ['nullable', 'uuid'],

@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\ApiController;
 use App\Models\Classroom;
 use App\Models\Computer;
 use App\Models\User;
+use App\Support\Audit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -31,6 +32,7 @@ class DeviceController extends ApiController
         $device->fill($data);
         $device->configuration_version++;
         $device->save();
+        Audit::record('device.updated', $user, null, $device, ['changes' => array_keys($data)]);
         DeviceConfigurationUpdated::dispatch($device);
 
         return $this->success($device);
@@ -42,6 +44,7 @@ class DeviceController extends ApiController
         $user = $request->user();
         abort_unless($user->isSchoolAdministrator($device->school_id), 403);
 
+        Audit::record('device.revoked', $user, null, $device);
         DeviceRevoked::dispatch($device);
         $device->update(['revoked_at' => now(), 'presence_status' => 'offline']);
         $device->tokens()->delete();

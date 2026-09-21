@@ -18,6 +18,10 @@ use App\Http\Controllers\Api\V1\DeviceSessionController;
 use App\Http\Controllers\Api\V1\InvitationAcceptanceController;
 use App\Http\Controllers\Api\V1\TeacherClassroomController;
 use App\Http\Controllers\Api\V1\TeacherCommandController;
+use App\Http\Controllers\Api\V1\TeacherPolicyController;
+use App\Http\Controllers\Api\V1\DevicePolicyController;
+use App\Http\Controllers\Api\V1\Admin\AuditController;
+use App\Http\Controllers\Api\V1\Admin\BlockRuleController;
 
 Route::get('/ping', fn () => response()->json(['ok' => true]));
 
@@ -40,6 +44,7 @@ Route::prefix('v1')->group(function () {
         Route::post('browser/events', [DeviceBrowserController::class, 'store']);
         Route::get('commands', [DeviceCommandController::class, 'index']);
         Route::post('commands/{uuid}/result', [DeviceCommandController::class, 'result']);
+        Route::get('policy', [DevicePolicyController::class, 'show']);
     });
 
     Route::middleware(['auth:sanctum', 'teacher.token'])->group(function () {
@@ -50,7 +55,16 @@ Route::prefix('v1')->group(function () {
         Route::post('teacher/classrooms/{classroom}/devices/{device}/commands', [TeacherCommandController::class, 'store'])->middleware('throttle:60,1');
         Route::get('teacher/classrooms/{classroom}/devices/{device}/commands/{uuid}', [TeacherCommandController::class, 'show']);
 
+        Route::get('teacher/classrooms/{classroom}/policy', [TeacherPolicyController::class, 'show']);
+        Route::post('teacher/classrooms/{classroom}/focus-sessions', [TeacherPolicyController::class, 'startFocus'])->middleware('throttle:30,1');
+        Route::post('teacher/classrooms/{classroom}/focus-sessions/{uuid}/end', [TeacherPolicyController::class, 'endFocus']);
+        Route::post('teacher/classrooms/{classroom}/block-rules', [TeacherPolicyController::class, 'addBlockRule'])->middleware('throttle:60,1');
+        Route::delete('teacher/classrooms/{classroom}/block-rules/{rule}', [TeacherPolicyController::class, 'removeBlockRule']);
+
         Route::prefix('admin')->group(function () {
+            Route::post('block-rules', [BlockRuleController::class, 'store']);
+            Route::delete('block-rules/{rule}', [BlockRuleController::class, 'destroy']);
+            Route::get('audit', [AuditController::class, 'index']);
             Route::get('classrooms', [AdminClassroomController::class, 'index']);
             Route::post('classrooms', [AdminClassroomController::class, 'store']);
             Route::put('classrooms/{classroom}/staff/{staff}', [AdminClassroomController::class, 'assignStaff']);

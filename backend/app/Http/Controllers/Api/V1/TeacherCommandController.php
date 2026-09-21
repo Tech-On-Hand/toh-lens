@@ -7,6 +7,7 @@ use App\Models\Classroom;
 use App\Models\Computer;
 use App\Models\DeviceCommand;
 use App\Models\User;
+use App\Support\Audit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -57,6 +58,14 @@ class TeacherCommandController extends ApiController
             'payload' => $data['payload'],
             'status' => 'pending',
             'expires_at' => now()->addSeconds($data['ttl_seconds'] ?? 60),
+        ]);
+
+        Audit::record('browser.command_issued', $user, $classroom, $device, [
+            'command_id' => $command->uuid,
+            'type' => $command->type,
+            'payload' => $command->payload,
+            'student_session_id' => $session->uuid,
+            'student_id' => $session->student_id,
         ]);
 
         DeviceCommandIssued::dispatch($command);

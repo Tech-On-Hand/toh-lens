@@ -85,3 +85,44 @@ Delivered commands use the reserved envelope (`version`, `id`, `type`, `organiza
 
 - `private-classroom.{id}`: `device.browser.changed` (active tab or tab count changed), `device.command.updated`.
 - `private-device.{uuid}`: `device.command.issued` (nudge only; the command itself is fetched over REST).
+
+# Milestone 3 contracts — classroom policies
+
+Two kinds of rule. **Blocked sites** are a standing block list, scoped to a whole school or one classroom. A **focus session** is a time-boxed allow-list for one classroom. Blocked sites always win: a domain that is blocked stays blocked even if a focus session allows it. Only one focus session can be active per classroom.
+
+A rule is a domain and matches that domain and every subdomain (`example.com` covers `a.example.com`, not `notexample.com`). Input is normalized to a bare hostname (`https://www.X.com/p?q` becomes `www.x.com`); IP addresses, single-label names, and non-domains are rejected.
+
+## REST
+
+| Method | Path | Principal | Purpose |
+|---|---|---|---|
+| GET | `/api/v1/device/policy?known=<version>` | Active device | The device's effective policy; `{unchanged:true}` if `known` is current |
+| GET | `/api/v1/teacher/classrooms/{c}/policy` | Teacher (viewer+) | Block rules (with scope) and the active focus session |
+| POST | `/api/v1/teacher/classrooms/{c}/focus-sessions` | Primary/assistant/admin | Start focus: `allowed_domains` (1-100), `duration_minutes` (1-240), `name?`. `409 FOCUS_ALREADY_ACTIVE` if one is running |
+| POST | `/api/v1/teacher/classrooms/{c}/focus-sessions/{id}/end` | Primary/assistant/admin | End it early. `409 FOCUS_NOT_ACTIVE` if already over |
+| POST / DELETE | `/api/v1/teacher/classrooms/{c}/block-rules[/{rule}]` | Primary/assistant/admin | Add or remove a classroom rule. School rules return `403 SCHOOL_RULE` |
+| POST / DELETE | `/api/v1/admin/block-rules[/{rule}]` | School administrator | School-wide or classroom rules |
+| GET | `/api/v1/admin/audit?school_id=&classroom_id=&action=&before_id=&limit=` | School administrator | Newest first, at most 100 |
+
+## Device policy
+
+```json
+{ "version": "sha1", "server_time": "ISO-8601", "block": ["games.example"],
+  "focus": { "id": "uuid", "name": "Fractions", "allowed_domains": ["khan.example"],
+             "started_at": "ISO-8601", "expires_at": "ISO-8601" } }
+```
+
+`version` changes whenever the effective policy does. `server_time` lets the agent turn `expires_at` into a deadline on the local clock (`now + (expires_at - server_time)`), so a wrong device clock can neither extend nor shorten a session. The agent caches the policy and the browser keeps enforcing it offline. A focus session past its deadline is inactive everywhere even before the expiry job records it.
+
+## Audit actions
+
+`focus.started`, `focus.ended`, `focus.expired`, `block_rule.added`, `block_rule.removed`, `browser.command_issued` (with the command payload and the student session), `device.updated`, `device.revoked`. Rows are append-only. Blocked navigations reported by the browser are stored as `browser_activities` with `event_type = blocked`.
+
+## Realtime events
+
+- `private-device.{uuid}`: `device.policy.changed` (nudge only; the policy is fetched over REST).
+- `private-classroom.{id}`: `classroom.focus.changed` with `state` = `started`, `ended`, or `expired`.
+
+## Browser enforcement
+
+Enforced by the extension with `declarativeNetRequest` dynamic rules on top-level navigations only (page resources and embedded frames load normally). Blocked navigations go to a page inside the extension that shows why and carries the original address. Enforcement is reversible: when a rule is lifted, tabs parked on that page return to the address they were sent from. It covers Chrome and Edge only; other browsers, and anything that bypasses the extension, are not covered (see the deployment guide).
