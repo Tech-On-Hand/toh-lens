@@ -1,4 +1,5 @@
 mod api_client;
+mod browser_bridge;
 mod commands;
 mod credential_store;
 mod db;
@@ -12,6 +13,7 @@ use std::time::Duration;
 use tauri::Manager;
 
 const SYNC_INTERVAL: Duration = Duration::from_secs(30);
+const BROWSER_TICK: Duration = Duration::from_secs(3);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -26,6 +28,21 @@ pub fn run() {
             credential_store::migrate_legacy_token(&connection);
             let state = AppState::new(connection);
             app.manage(state.clone());
+
+            let bridge_state = state.clone();
+            tauri::async_runtime::spawn(async move {
+                if browser_bridge::start(bridge_state.clone()).await.is_err() {
+                    return;
+                }
+                let mut interval = tokio::time::interval(BROWSER_TICK);
+                interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+                let mut tick_number = 0u64;
+                loop {
+                    interval.tick().await;
+                    browser_bridge::tick(&bridge_state, tick_number).await;
+                    tick_number += 1;
+                }
+            });
 
             tauri::async_runtime::spawn(async move {
                 let mut interval = tokio::time::interval(SYNC_INTERVAL);

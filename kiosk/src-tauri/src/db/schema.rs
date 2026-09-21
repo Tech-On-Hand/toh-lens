@@ -36,9 +36,24 @@ CREATE INDEX idx_login_sessions_unsynced ON login_sessions (synced);
 CREATE INDEX idx_login_sessions_open ON login_sessions (computer_id, logout_time);
 "#;
 
+/// Browser navigation events wait here until the backend acknowledges them,
+/// so a network outage never loses or mis-attributes student activity.
+const MIGRATION_V2: &str = r#"
+CREATE TABLE browser_events (
+    uuid         TEXT PRIMARY KEY,
+    browser      TEXT NOT NULL,
+    event_type   TEXT NOT NULL,
+    url          TEXT,
+    title        TEXT,
+    session_uuid TEXT,
+    occurred_at  TEXT NOT NULL,
+    created_at   TEXT NOT NULL
+);
+"#;
+
 /// Step-wise migrations keyed by `PRAGMA user_version`. Add new steps by
 /// appending to this slice — never edit a step that has already shipped.
-const MIGRATIONS: &[&str] = &[MIGRATION_V1];
+const MIGRATIONS: &[&str] = &[MIGRATION_V1, MIGRATION_V2];
 
 pub fn run_migrations(conn: &Connection) -> rusqlite::Result<()> {
     let current_version: i64 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;

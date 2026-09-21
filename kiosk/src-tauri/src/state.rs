@@ -12,6 +12,7 @@ pub struct AppState {
     /// the handoff is a no-op there.
     #[allow(dead_code)]
     pub desktop_child: Arc<Mutex<Option<Child>>>,
+    pub bridge: crate::browser_bridge::Bridge,
 }
 
 impl AppState {
@@ -25,6 +26,7 @@ impl AppState {
             db: Arc::new(Mutex::new(db)),
             http,
             desktop_child: Arc::new(Mutex::new(None)),
+            bridge: crate::browser_bridge::Bridge::default(),
         }
     }
 }

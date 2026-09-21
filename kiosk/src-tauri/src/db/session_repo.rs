@@ -79,6 +79,19 @@ pub fn find_open_session(conn: &Connection, computer_id: i64) -> rusqlite::Resul
     .optional()
 }
 
+/// The session that was open at `at` (an RFC 3339 instant), so an event that
+/// happened during one student's session is never credited to the next one.
+pub fn session_uuid_at(conn: &Connection, computer_id: i64, at: &str) -> rusqlite::Result<Option<String>> {
+    conn.query_row(
+        "SELECT session_uuid FROM login_sessions
+         WHERE computer_id = ?1 AND login_time <= ?2 AND (logout_time IS NULL OR logout_time >= ?2)
+         ORDER BY id DESC LIMIT 1",
+        (computer_id, at),
+        |row| row.get(0),
+    )
+    .optional()
+}
+
 fn map_row(row: &rusqlite::Row) -> rusqlite::Result<LoginSessionRecord> {
     Ok(LoginSessionRecord {
         session_uuid: row.get(0)?,

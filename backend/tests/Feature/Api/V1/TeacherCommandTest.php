@@ -47,7 +47,7 @@ class TeacherCommandTest extends TestCase
         $observer = $this->makeTeacher($school, $classroom, 'observer');
 
         $this->withHeaders($this->teacherHeaders($observer))->postJson($this->url($classroom, $device), [
-            'type' => 'browser.close_tab', 'student_session_id' => $session->uuid, 'payload' => ['tab_id' => 4],
+            'type' => 'browser.close_tab', 'student_session_id' => $session->uuid, 'payload' => ['browser' => 'chrome', 'tab_id' => 4],
         ])->assertForbidden();
     }
 
@@ -60,7 +60,7 @@ class TeacherCommandTest extends TestCase
         $outsider->schools()->attach($school, ['role' => 'teacher']);
 
         $this->withHeaders($this->teacherHeaders($outsider))->postJson($this->url($classroom, $device), [
-            'type' => 'browser.close_tab', 'student_session_id' => $session->uuid, 'payload' => ['tab_id' => 4],
+            'type' => 'browser.close_tab', 'student_session_id' => $session->uuid, 'payload' => ['browser' => 'chrome', 'tab_id' => 4],
         ])->assertForbidden();
     }
 
@@ -106,7 +106,9 @@ class TeacherCommandTest extends TestCase
         }
 
         $this->withHeaders($headers)->postJson($this->url($classroom, $device), ['type' => 'browser.navigate', 'student_session_id' => $sid, 'payload' => ['url' => 'https://example.com']])->assertStatus(422);
-        $this->withHeaders($headers)->postJson($this->url($classroom, $device), ['type' => 'browser.close_tab', 'student_session_id' => $sid, 'payload' => ['tab_id' => 1, 'url' => 'https://example.com']])->assertStatus(422);
+        $this->withHeaders($headers)->postJson($this->url($classroom, $device), ['type' => 'browser.close_tab', 'student_session_id' => $sid, 'payload' => ['browser' => 'chrome', 'tab_id' => 1, 'url' => 'https://example.com']])->assertStatus(422);
+        $this->withHeaders($headers)->postJson($this->url($classroom, $device), ['type' => 'browser.close_tab', 'student_session_id' => $sid, 'payload' => ['tab_id' => 1]])->assertStatus(422);
+        $this->withHeaders($headers)->postJson($this->url($classroom, $device), ['type' => 'browser.close_tab', 'student_session_id' => $sid, 'payload' => ['browser' => 'firefox', 'tab_id' => 1]])->assertStatus(422);
         $this->withHeaders($headers)->postJson($this->url($classroom, $device), ['type' => 'system.shutdown', 'student_session_id' => $sid, 'payload' => []])->assertStatus(422);
         $this->assertSame(0, DeviceCommand::count());
     }
@@ -120,7 +122,7 @@ class TeacherCommandTest extends TestCase
         $teacher = $this->makeTeacher($school, $classroom);
 
         $this->withHeaders($this->teacherHeaders($teacher))->postJson($this->url($classroom, $device), [
-            'type' => 'browser.close_tab', 'student_session_id' => $session->uuid, 'payload' => ['tab_id' => 1],
+            'type' => 'browser.close_tab', 'student_session_id' => $session->uuid, 'payload' => ['browser' => 'chrome', 'tab_id' => 1],
         ])->assertNotFound();
     }
 
@@ -134,7 +136,7 @@ class TeacherCommandTest extends TestCase
         $headers = $this->teacherHeaders($teacher);
 
         $id = $this->withHeaders($headers)->postJson($this->url($classroom, $device), [
-            'type' => 'browser.close_tab', 'student_session_id' => $session->uuid, 'payload' => ['tab_id' => 7],
+            'type' => 'browser.close_tab', 'student_session_id' => $session->uuid, 'payload' => ['browser' => 'edge', 'tab_id' => 7],
         ])->json('data.id');
 
         $this->withHeaders($this->teacherHeaders($observer))->getJson($this->url($classroom, $device)."/{$id}")

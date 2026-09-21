@@ -1,0 +1,22 @@
+[package]
+name = "toh-klas-native-host"
+version = "0.1.0"
+description = "Chrome/Edge native messaging host that relays the TOH Klas browser extension to the Student Agent"
+edition = "2021"
+
+[lib]
+name = "native_host"
+
+[[bin]]
+name = "toh-klas-native-host"
+path = "src/main.rs"
+
+[dependencies]
+serde_json = "1"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

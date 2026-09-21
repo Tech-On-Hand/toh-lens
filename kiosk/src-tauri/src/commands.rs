@@ -166,6 +166,7 @@ pub fn record_login(app: tauri::AppHandle, state: State<AppState>, admission_num
     // FR-1.5: hand off to the normal desktop. No-op in dev builds — see
     // shell_handoff.rs for why this must never run on a developer machine.
     crate::shell_handoff::launch_desktop(&app, &state);
+    state.bridge.request_snapshots();
 
     Ok(record)
 }
@@ -179,6 +180,7 @@ pub fn record_logout(app: tauri::AppHandle, state: State<AppState>, session_uuid
 
     // FR-1.6: reclaim the desktop before returning to the keypad.
     crate::shell_handoff::reclaim_desktop(&app, &state);
+    state.bridge.request_snapshots();
 
     // Best-effort push right after logout so completed sessions sync
     // promptly instead of waiting for the next periodic tick.

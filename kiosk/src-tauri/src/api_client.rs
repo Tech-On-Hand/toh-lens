@@ -145,3 +145,79 @@ pub async fn post_sessions_sync(
 
     Ok(SyncSessionsResponseBody { results: data.results })
 }
+
+/// `Err(Some(status))` is an HTTP rejection, `Err(None)` a network failure, so
+/// the caller can tell "retry later" from "this payload will never be accepted".
+pub async fn post_browser_events(
+    http: &reqwest::Client,
+    base_url: &str,
+    token: &str,
+    body: &serde_json::Value,
+) -> Result<(), Option<u16>> {
+    let response = http
+        .post(join_url(base_url, "api/v1/device/browser/events"))
+        .bearer_auth(token)
+        .json(body)
+        .send()
+        .await
+        .map_err(|_| None)?;
+
+    if response.status().is_success() {
+        Ok(())
+    } else {
+        Err(Some(response.status().as_u16()))
+    }
+}
+
+pub async fn fetch_commands(
+    http: &reqwest::Client,
+    base_url: &str,
+    token: &str,
+) -> Result<Vec<serde_json::Value>, String> {
+    #[derive(serde::Deserialize)]
+    struct CommandsData {
+        commands: Vec<serde_json::Value>,
+    }
+
+    let response = http
+        .get(join_url(base_url, "api/v1/device/commands"))
+        .bearer_auth(token)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !response.status().is_success() {
+        return Err(format!("server returned {}", response.status()));
+    }
+
+    response
+        .json::<ApiEnvelope<CommandsData>>()
+        .await
+        .map_err(|e| e.to_string())?
+        .data
+        .map(|data| data.commands)
+        .ok_or_else(|| "The server returned an invalid commands response.".into())
+}
+
+pub async fn post_command_result(
+    http: &reqwest::Client,
+    base_url: &str,
+    token: &str,
+    command_id: &str,
+    status: &str,
+    result: serde_json::Value,
+) -> Result<(), String> {
+    let response = http
+        .post(join_url(base_url, &format!("api/v1/device/commands/{command_id}/result")))
+        .bearer_auth(token)
+        .json(&serde_json::json!({ "status": status, "result": result }))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if response.status().is_success() {
+        Ok(())
+    } else {
+        Err(format!("server returned {}", response.status()))
+    }
+}

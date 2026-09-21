@@ -1,3 +1,4 @@
+pub mod browser_repo;
 pub mod config_repo;
 pub mod roster_repo;
 mod schema;

@@ -30,6 +30,11 @@ class TeacherCommandController extends ApiController
             'payload' => ['required', 'array'],
             'payload.url' => in_array($type, ['browser.open_url', 'browser.navigate'], true) ? self::URL_RULE : ['prohibited'],
             'payload.tab_id' => in_array($type, ['browser.navigate', 'browser.close_tab'], true) ? ['required', 'integer', 'min:0'] : ['prohibited'],
+            'payload.browser' => match ($type) {
+                'browser.navigate', 'browser.close_tab' => ['required', 'in:chrome,edge'],
+                'browser.open_url' => ['nullable', 'in:chrome,edge'],
+                default => ['prohibited'],
+            },
         ]);
 
         if (! $device->isOnline()) {

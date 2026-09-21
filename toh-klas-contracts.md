@@ -75,7 +75,7 @@ The teacher device snapshot gains `active_tab` (`tab_id`, `url`, `title`, `obser
 
 ## Commands
 
-Types: `browser.open_url {url}`, `browser.navigate {tab_id, url}`, `browser.close_tab {tab_id}`. URLs must be `http`/`https`. Issuing requires `student_session_id` to equal the device's active student session; otherwise the API returns `409 SESSION_MISMATCH`. An offline device returns `409 DEVICE_OFFLINE`. Commands default to a 60 s lifetime (10-300 s allowed).
+Types: `browser.open_url {url, browser?}`, `browser.navigate {browser, tab_id, url}`, `browser.close_tab {browser, tab_id}`. `browser` is `chrome` or `edge`; tab ids are only unique within one browser, so tab-specific commands must name it. URLs must be `http`/`https`. Issuing requires `student_session_id` to equal the device's active student session; otherwise the API returns `409 SESSION_MISMATCH`. An offline device returns `409 DEVICE_OFFLINE`. Commands default to a 60 s lifetime (10-300 s allowed).
 
 Statuses: `pending` -> `delivered` -> `completed` | `failed`, or `expired`. A command is expired instead of delivered if the student session changed or the deadline passed. Delivery is at-most-once: a command handed to an agent is never re-sent, so a crash cannot open a tab twice; the teacher sees it expire and can re-issue.
 
