@@ -12,7 +12,7 @@
 
 Chrome/Edge managed extension, native messaging host, current-tab activity, open/close/navigate tab actions, and session-correct attribution.
 
-**Status:** built and tested in software (backend APIs, agent bridge, native host, extension, installer). Not yet run in a real browser on a real school machine, and the Teacher app does not show tabs or send commands yet. See `provisioning/browser-integration.md`.
+**Status:** built and tested in software (backend APIs, agent bridge, native host, extension, installer, and a Teacher app Browser panel that shows the active tab and can open, redirect, or close pages). Not yet run in a real browser on a real school machine, and the Teacher UI is type-checked but has not been looked at in a running window. See `provisioning/browser-integration.md`.
 
 ## Milestone 3 — Classroom policies
 

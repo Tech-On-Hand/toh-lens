@@ -54,3 +54,26 @@ header .eyebrow { margin-top: 0; }
 .danger { margin-top: 14px; padding: 6px 9px; border: 1px solid #e2caca; border-radius: 7px; color: #943c3c; background: #fffafa; font-size: 11px; }
 .empty { grid-column: 1/-1; padding: 70px; border: 1px dashed #cbd7ca; border-radius: 16px; text-align: center; color: #6b776f; }
 .empty h2 { color: #283a30; }
+
+.active-tab { margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.active-tab strong { color: #2d5a3d; margin-right: 6px; }
+.ghost { margin-top: 10px; padding: 6px 10px; border: 1px solid #cbd7ca; border-radius: 7px; background: white; color: #2d5a3d; font-size: 12px; cursor: pointer; }
+.ghost:disabled { opacity: .5; cursor: default; }
+.panel-backdrop { position: fixed; inset: 0; z-index: 10; display: flex; justify-content: flex-end; background: rgba(28,42,33,.35); }
+.panel { width: min(520px, 100%); height: 100%; overflow-y: auto; padding: 24px; background: #f8faf6; box-shadow: -8px 0 32px rgba(28,42,33,.15); }
+.panel header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.panel h2 { margin: 4px 0 18px; }
+.panel h3 { margin: 26px 0 10px; font-size: 14px; }
+.open-form { display: flex; gap: 8px; }
+.open-form input { flex: 1; padding: 9px 11px; border: 1px solid #cbd7ca; border-radius: 8px; }
+.notice { margin: 12px 0 0; padding: 9px 12px; border-radius: 8px; background: #eef3ea; color: #2d4536; font-size: 13px; }
+.muted { color: #718078; font-size: 13px; }
+.tab-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; padding: 10px 12px; border: 1px solid #dce4da; border-radius: 10px; background: white; }
+.tab-row.viewing { border-color: #6fa583; box-shadow: 0 0 0 2px #e2f0e6; }
+.tab-text { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.tab-text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.tab-text small { color: #7b8980; }
+.tab-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.tab-actions .ghost { margin-top: 0; }
+.tag { align-self: flex-start; padding: 1px 7px; border-radius: 99px; background: #eef1ee; color: #5c6a61; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+.tag.live { background: #dff0e5; color: #2d6a44; }

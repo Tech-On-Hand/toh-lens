@@ -1,6 +1,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useState } from "react";
 import * as api from "./api";
+import BrowserPanel, { hostOf } from "./BrowserPanel";
 import type { Classroom, Device, TeacherSession } from "./types";
 
 function Login({ onLogin }: { onLogin: (session: TeacherSession) => void }) {
@@ -38,6 +39,7 @@ function ClassroomView({ session, onLogout }: { session: TeacherSession; onLogou
   const [devices, setDevices] = useState<Device[]>([]);
   const [view, setView] = useState<"grid" | "list">("grid");
   const [connection, setConnection] = useState("Connecting");
+  const [inspectingId, setInspectingId] = useState<number | null>(null);
 
   const refresh = useCallback(async (classroom = selected) => {
     if (classroom) setDevices(await api.listDevices(classroom.id));
@@ -50,7 +52,13 @@ function ClassroomView({ session, onLogout }: { session: TeacherSession; onLogou
     const timer = window.setInterval(() => refresh(selected), 15000);
     return () => window.clearInterval(timer);
   }, [selected, refresh]);
-  useEffect(() => { let dispose = () => {}; listen("classroom-event", () => refresh()).then(fn => { dispose = fn; }); return () => dispose(); }, [refresh]);
+  useEffect(() => {
+    let dispose = () => {};
+    let pending: number | undefined;
+    // Browser activity can arrive many times a second, so coalesce refreshes.
+    listen("classroom-event", () => { window.clearTimeout(pending); pending = window.setTimeout(() => refresh(), 500); }).then(fn => { dispose = fn; });
+    return () => { dispose(); window.clearTimeout(pending); };
+  }, [refresh]);
 
   const online = devices.filter(device => device.status === "online").length;
   return <div className="app-shell">
@@ -73,10 +81,13 @@ function ClassroomView({ session, onLogout }: { session: TeacherSession; onLogou
           <div className="screen-placeholder"><span>{device.active_session?.student?.full_name?.slice(0, 1) ?? "—"}</span></div>
           <h3>{device.active_session?.student?.full_name ?? "No active student"}</h3>
           <p>{device.hostname ?? "Hostname unavailable"} · Agent {device.agent_version ?? "—"}</p>
+          {device.active_tab && <p className="active-tab" title={device.active_tab.url ?? ""}><strong>{hostOf(device.active_tab.url)}</strong> {device.active_tab.title}</p>}
+          {device.active_session && device.status === "online" && <button className="ghost" onClick={() => setInspectingId(device.id)}>Browser</button>}
           {session.is_administrator && <button className="danger" onClick={async () => { if (confirm(`Revoke ${device.name}?`)) { await api.revokeDevice(device.id); await refresh(); } }}>Revoke</button>}
         </article>)}
         {selected && devices.length === 0 && <div className="empty"><h2>No devices yet</h2><p>Use an enrollment code from the web administration area to add a student computer.</p></div>}
       </section>
+      {selected && devices.find(d => d.id === inspectingId) && <BrowserPanel classroom={selected} device={devices.find(d => d.id === inspectingId)!} onClose={() => setInspectingId(null)} />}
     </main>
   </div>;
 }

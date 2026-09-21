@@ -51,16 +51,6 @@ struct AppState {
     realtime_generation: Arc<AtomicU64>,
 }
 
-#[derive(Deserialize)]
-struct ApiEnvelope<T> {
-    success: bool,
-    data: Option<T>,
-    error: Option<ApiError>,
-}
-
-#[derive(Deserialize)]
-struct ApiError { message: String }
-
 fn credential(account: &str) -> Result<keyring::Entry, String> {
     keyring::Entry::new(CREDENTIAL_SERVICE, account).map_err(|e| e.to_string())
 }
@@ -93,11 +83,16 @@ fn endpoint(base: &str, path: &str) -> String {
 
 async fn response_data<T: DeserializeOwned>(response: reqwest::Response) -> Result<T, String> {
     let status = response.status();
-    let body = response.json::<ApiEnvelope<T>>().await.map_err(|e| e.to_string())?;
-    if !status.is_success() || !body.success {
-        return Err(body.error.map(|e| e.message).unwrap_or_else(|| format!("Server returned {status}")));
+    let body: serde_json::Value = response.json().await.unwrap_or(serde_json::Value::Null);
+    if !status.is_success() || body["success"] != true {
+        // Business errors use {error:{message}}; framework errors (403, 422) use {message}.
+        let message = body["error"]["message"].as_str().or_else(|| body["message"].as_str()).filter(|m| !m.is_empty());
+        return Err(message.map(str::to_string).unwrap_or_else(|| match status.as_u16() {
+            403 => "You do not have permission to do that.".to_string(),
+            _ => format!("Server returned {status}"),
+        }));
     }
-    body.data.ok_or_else(|| "Server returned no data.".into())
+    serde_json::from_value(body["data"].clone()).map_err(|_| "Server returned no data.".to_string())
 }
 
 fn current_session(state: &AppState) -> Result<StoredSession, String> {
@@ -153,6 +148,24 @@ async fn list_classrooms(state: State<'_, AppState>) -> Result<serde_json::Value
 #[tauri::command]
 async fn list_devices(state: State<'_, AppState>, classroom_id: i64) -> Result<serde_json::Value, String> {
     authenticated_get(&state, &format!("api/v1/teacher/classrooms/{classroom_id}/devices")).await
+}
+
+#[tauri::command]
+async fn list_browser_tabs(state: State<'_, AppState>, classroom_id: i64, device_id: i64) -> Result<serde_json::Value, String> {
+    authenticated_get(&state, &format!("api/v1/teacher/classrooms/{classroom_id}/devices/{device_id}/browser-tabs")).await
+}
+
+#[tauri::command]
+async fn send_command(state: State<'_, AppState>, classroom_id: i64, device_id: i64, command: serde_json::Value) -> Result<serde_json::Value, String> {
+    let session = current_session(&state)?;
+    let response = state.http.post(endpoint(&session.api_base_url, &format!("api/v1/teacher/classrooms/{classroom_id}/devices/{device_id}/commands")))
+        .bearer_auth(&session.token).json(&command).send().await.map_err(|e| e.to_string())?;
+    response_data(response).await
+}
+
+#[tauri::command]
+async fn get_command(state: State<'_, AppState>, classroom_id: i64, device_id: i64, command_id: String) -> Result<serde_json::Value, String> {
+    authenticated_get(&state, &format!("api/v1/teacher/classrooms/{classroom_id}/devices/{device_id}/commands/{command_id}")).await
 }
 
 #[tauri::command]
@@ -228,7 +241,7 @@ pub fn run() {
             session: Arc::new(Mutex::new(None)),
             realtime_generation: Arc::new(AtomicU64::new(0)),
         })
-        .invoke_handler(tauri::generate_handler![login, restore_session, logout, list_classrooms, list_devices, revoke_device, start_realtime])
+        .invoke_handler(tauri::generate_handler![login, restore_session, logout, list_classrooms, list_devices, list_browser_tabs, send_command, get_command, revoke_device, start_realtime])
         .run(tauri::generate_context!())
         .expect("error while running TOH Klas Teacher");
 }
