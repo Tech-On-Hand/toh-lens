@@ -1,0 +1,100 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>broadcast receive</title>
+<div id="videos"></div>
+<canvas id="c" width="64" height="36" style="display:none"></canvas>
+<script>
+  // Simulates the whole class: opens `count` independent RTCPeerConnections in one
+  // page, each receiving from the SAME shared track on the Rust side. No STUN/TURN.
+  const count = Number(new URLSearchParams(location.search).get('count') ?? 30);
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const post = (path, body) => fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).catch(() => {});
+
+  async function poll(path, since) {
+    const response = await fetch(`${path}?since=${since}`);
+    return (await response.json()).messages ?? [];
+  }
+
+  async function runViewer(id) {
+    const base = `/conn/${id}`;
+    const pc = new RTCPeerConnection({ iceServers: [] });
+    pc.addTransceiver('video', { direction: 'recvonly' });
+    const video = document.createElement('video');
+    video.autoplay = true;
+    video.muted = true;
+    video.playsInline = true;
+    document.getElementById('videos').appendChild(video);
+    pc.ontrack = (event) => { video.srcObject = event.streams[0]; };
+    pc.onicecandidate = (event) => event.candidate && post(`${base}/to-rust`, { kind: 'Candidate', candidate: event.candidate.toJSON() });
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await post(`${base}/to-rust`, { kind: 'Offer', sdp: { type: offer.type, sdp: offer.sdp } });
+
+    let since = 0;
+    const deadline = Date.now() + 20000;
+    while (pc.connectionState !== 'connected' && pc.connectionState !== 'failed' && Date.now() < deadline) {
+      const messages = await poll(`${base}/from-rust`, since);
+      for (const message of messages) {
+        since = Math.max(since, message.n);
+        if (message.data.answer) await pc.setRemoteDescription(new RTCSessionDescription(message.data.answer));
+        if (message.data.candidate) await pc.addIceCandidate(message.data.candidate).catch(() => {});
+      }
+      if (messages.length === 0) await sleep(50);
+    }
+    return { id, pc, video };
+  }
+
+  async function main() {
+    const started = performance.now();
+    const viewers = await Promise.all(Array.from({ length: count }, (_, id) => runViewer(id)));
+    const connectMs = performance.now() - started;
+
+    await sleep(9000); // let media flow
+
+    let connected = 0;
+    let totalFramesDecoded = 0;
+    let totalBytesReceived = 0;
+    let totalPacketsLost = 0;
+    let totalFreezes = 0;
+    let directPathCount = 0;
+    const brightnessSamples = [];
+
+    for (const { id, pc, video } of viewers) {
+      if (pc.connectionState === 'connected') connected += 1;
+      const stats = await pc.getStats();
+      const byId = {};
+      stats.forEach((report) => { byId[report.id] = report; });
+      stats.forEach((report) => {
+        if (report.type === 'inbound-rtp' && report.kind === 'video') {
+          totalFramesDecoded += report.framesDecoded ?? 0;
+          totalBytesReceived += report.bytesReceived ?? 0;
+          totalPacketsLost += report.packetsLost ?? 0;
+          totalFreezes += report.freezeCount ?? 0;
+        }
+        if (report.type === 'transport' && report.selectedCandidatePairId) {
+          const pair = byId[report.selectedCandidatePairId];
+          const local = byId[pair.localCandidateId]?.candidateType;
+          const remote = byId[pair.remoteCandidateId]?.candidateType;
+          if (local === 'host' && remote === 'host') directPathCount += 1;
+        }
+      });
+
+      if (id < 3 && video.videoWidth > 0) {
+        const canvas = document.getElementById('c');
+        canvas.getContext('2d').drawImage(video, 0, 0, 64, 36);
+        const pixels = canvas.getContext('2d').getImageData(0, 0, 64, 36).data;
+        let sum = 0;
+        for (let i = 0; i < pixels.length; i += 4) sum += pixels[i] + pixels[i + 1] + pixels[i + 2];
+        brightnessSamples.push(Math.round(sum / (pixels.length / 4) / 3));
+      }
+    }
+
+    await post('/report', {
+      ok: true, count, connected, directPathCount, connectMs: Math.round(connectMs),
+      totalFramesDecoded, totalBytesReceived, totalPacketsLost, totalFreezes, brightnessSamples,
+    });
+  }
+
+  main().catch((error) => post('/report', { ok: false, reason: String(error), stack: error?.stack }));
+</script>

@@ -66,6 +66,21 @@ This clears the second-largest risk after decodability itself: on a shared LAN (
 
 Implementation notes for whoever builds this for real: `TrackLocalStaticSample` accepts our encoder's Annex-B output as-is (the crate's H264 payloader finds NAL start codes itself, no conversion needed); `MediaEngine::register_default_codecs()` negotiated a mutually acceptable H.264 profile with Chrome's offer with no manual codec configuration; the RTCP reader loop on the sender (`rtp_sender.read(...)` in a spawned task) must run or the connection stalls, following the crate's own convention.
 
+## `native-capture/bin/broadcast_send.rs` + `broadcast.mjs` (works, with an important caveat)
+
+The question this settles: when a teacher broadcasts their own screen to the whole class, do we really need "30 encoder sessions," or does `webrtc-rs`'s documented ability to bind one `TrackLocalStaticSample` to many `RTCPeerConnection`s (its own doc comment: "the packets will still be sent to all PeerConnections") actually hold up at a real N? This is the opposite direction from the `webrtc_send` spike above (there, students send to one teacher; here, one teacher sends to many students) and was flagged as the largest remaining risk.
+
+One capture, one Media Foundation encoder, one `write_sample()` call per frame — bound to N real `RTCPeerConnection`s, each negotiated independently (no STUN/TURN), against a real headless Chrome running N independent `RTCPeerConnection`s standing in for N students' machines.
+
+```
+cargo build --release --bin broadcast-send
+node broadcast.mjs 30
+```
+
+Result at N=30, two consecutive runs: **all 30 connected directly (host-to-host, no relay) in about 1.1-1.3 seconds total**, zero packets lost, and the teacher-side process — the one thing that has to scale — used **40-53% of one CPU core** to encode once and fan out to all 30, versus roughly 30 times that for 30 separate encoders (the earlier full-quality single-capture spike measured ~21-25% of a core for one encoder alone). Aggregate measured egress (summed from the 30 receivers' own stats, not asserted by the sender) matched the theoretical `bitrate x 30` almost exactly, which is the correct and unavoidable cost: **N still buys nothing for network egress** — every viewer needs their own copy of the bytes over the wire regardless of encoding architecture. At the tested ~90 kbps/viewer, 30 viewers is a genuine ~2.6 Mbps of sustained upload from the teacher's machine, worth checking against real school upload bandwidth before relying on this for a whole class.
+
+**Caveat that matters:** decode quality at N=30 was noticeably worse than 1:1 (about 130 freezes across the 30 viewers, and each viewer decoding only ~40% of the frames sent) — but a control run at N=5 on the same machine showed **zero freezes** and full frame rate. This points squarely at the test itself, not the design: this spike runs the encoder AND all 30 decoders on one physical machine, sharing one CPU, which never happens in production (encode is on the teacher's PC; each decode is on its own separate student PC). The 1:1 `webrtc_send` spike above already proved a single decode is cheap and clean (zero freezes, zero loss). The freeze count here should not be read as "30 students can't watch a teacher broadcast smoothly" — it hasn't been tested on 30 separate machines, which is what would actually tell you that.
+
 ## `screen-capture/` (does not work; kept as a record)
 
 The idea: reuse the agent's WebView2 for `getDisplayMedia` and WebRTC, in a hidden window, so we would get browser encoders and adaptive bitrate for free.
@@ -84,7 +99,7 @@ If someone revisits this: try a WebView2 runtime other than the installed one, a
 2. **Networks that block a direct connection** (client isolation, a teacher off-site). The design's TURN fallback is unbuilt and untested — this spike only proves the direct path, which is the expected common case.
 3. **Bitrate control under real content.** Re-run the mid-stream bitrate-change check with something as complex as the WebView2 spike's scrolling-text target, since the flat-color test content couldn't stress it (see above).
 4. **Thumbnails vs full view.** Plan: one connection per student, with the encoder switched between a small, low-frame-rate profile and a larger one on request, using the same `force_keyframe`/`set_bitrate` calls proven above. Not yet measured.
-5. **Teacher broadcast to a whole class.** One teacher PC encoding for ~30 students is 30 encoder sessions unless we send one stream a different way. This is the largest remaining performance risk.
+5. **Real per-machine capacity for the teacher-broadcast direction.** The one-encode-N-sends mechanism and its CPU/bandwidth cost on the sending side are now proven (see below). What's still open is decode quality on ~30 *separate* real student machines at once, and whether typical school upload bandwidth (a few Mbps of sustained egress from the teacher's machine) is actually available.
 6. **Capturing a real monitor**, the wireless-display and multi-monitor cases, and that the secure desktop (UAC, lock screen) cannot be captured.
 7. **The capture border and privacy indicator.** WGC can draw a yellow border on some Windows builds; we still need our own always-visible "your screen may be viewed" indicator either way.
 8. **Hardware vs software encoding**, and behavior on older/weaker school hardware — not measured on this development PC.

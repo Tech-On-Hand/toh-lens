@@ -26,3 +26,7 @@ serde_json = "1"
 [[bin]]
 name = "webrtc-send"
 path = "src/bin/webrtc_send.rs"
+
+[[bin]]
+name = "broadcast-send"
+path = "src/bin/broadcast_send.rs"
