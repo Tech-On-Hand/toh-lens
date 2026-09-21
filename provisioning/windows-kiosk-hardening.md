@@ -6,6 +6,14 @@ machines — the dev/build environment runs the kiosk as an ordinary
 windowed app. Apply these steps only on the actual shared student
 account of a machine being deployed to a school.
 
+**Steps 2-4 below are automated by `setup-kiosk-hardening.ps1`** in this
+same folder — it creates the account, sets autologon, replaces its
+shell, and disables Task Manager/Run/Control Panel for it. It has not
+been tested on real hardware (none was available while writing it);
+run it with `-DryRun` first and read what it prints before running for
+real. Steps 1, 5, and the verification checklist in step 6 are still
+manual — the script doesn't choose your password or check its own work.
+
 The kiosk app itself only handles app-level behavior (fullscreen, no
 window chrome, in-webview shortcut blocking — see `kioskGuards.ts` and
 `tauri.kiosk.conf.json`). It cannot block Ctrl+Alt+Del, Task Manager, or
