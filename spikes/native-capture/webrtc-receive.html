@@ -1,0 +1,95 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>webrtc receive</title>
+<video id="v" autoplay muted playsinline></video>
+<canvas id="c" width="64" height="36" style="display:none"></canvas>
+<script>
+  // Plays the Teacher app's role: receive-only, no STUN/TURN (iceServers: []), same
+  // as the real design's direct-connection path. Reports what actually arrived.
+  const post = (path, body) => fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).catch(() => {});
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  async function poll(since) {
+    const response = await fetch(`/from-rust?since=${since}`);
+    return (await response.json()).messages ?? [];
+  }
+
+  async function main() {
+    const pc = new RTCPeerConnection({ iceServers: [] });
+    pc.addTransceiver('video', { direction: 'recvonly' });
+
+    let sawTrack = false;
+    pc.ontrack = (event) => {
+      sawTrack = true;
+      document.getElementById('v').srcObject = event.streams[0];
+      post('/log', { event: 'ontrack', kind: event.track.kind });
+    };
+    pc.onicecandidate = (event) => event.candidate && post('/to-rust', { kind: 'Candidate', candidate: event.candidate.toJSON() });
+    pc.onconnectionstatechange = () => post('/log', { event: 'connection-state', state: pc.connectionState });
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await post('/to-rust', { kind: 'Offer', sdp: { type: offer.type, sdp: offer.sdp } });
+
+    let since = 0;
+    let answered = false;
+    while (!answered || pc.connectionState !== 'connected') {
+      const messages = await poll(since);
+      for (const message of messages) {
+        since = Math.max(since, message.n);
+        const data = message.data;
+        if (data.answer) {
+          await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+          answered = true;
+        }
+        if (data.candidate) {
+          await pc.addIceCandidate(data.candidate).catch((error) => post('/log', { event: 'candidate-error', message: String(error) }));
+        }
+      }
+      if (messages.length === 0) await sleep(50);
+      if (pc.connectionState === 'failed') break;
+    }
+
+    // Let media flow for a while, then sample the actual decoded picture and stats.
+    await sleep(9000);
+    const video = document.getElementById('v');
+    const canvas = document.getElementById('c');
+    let meanBrightness = null;
+    if (video.videoWidth > 0) {
+      canvas.getContext('2d').drawImage(video, 0, 0, 64, 36);
+      const pixels = canvas.getContext('2d').getImageData(0, 0, 64, 36).data;
+      let sum = 0;
+      for (let i = 0; i < pixels.length; i += 4) sum += pixels[i] + pixels[i + 1] + pixels[i + 2];
+      meanBrightness = Math.round(sum / (pixels.length / 4) / 3);
+    }
+
+    const stats = await pc.getStats();
+    let inbound = null;
+    let candidatePair = null;
+    const byId = {};
+    stats.forEach((report) => { byId[report.id] = report; });
+    stats.forEach((report) => {
+      if (report.type === 'inbound-rtp' && report.kind === 'video') inbound = report;
+      if (report.type === 'transport' && report.selectedCandidatePairId) {
+        const pair = byId[report.selectedCandidatePairId];
+        candidatePair = { local: byId[pair.localCandidateId]?.candidateType, remote: byId[pair.remoteCandidateId]?.candidateType, protocol: byId[pair.localCandidateId]?.protocol };
+      }
+    });
+
+    await post('/report', {
+      ok: sawTrack && pc.connectionState === 'connected',
+      connectionState: pc.connectionState,
+      videoSize: { width: video.videoWidth, height: video.videoHeight },
+      framesDecoded: inbound?.framesDecoded ?? 0,
+      freezeCount: inbound?.freezeCount ?? 0,
+      packetsReceived: inbound?.packetsReceived ?? 0,
+      packetsLost: inbound?.packetsLost ?? 0,
+      bytesReceived: inbound?.bytesReceived ?? 0,
+      decoder: inbound?.decoderImplementation ?? null,
+      candidatePair,
+      meanBrightness,
+    });
+  }
+
+  main().catch((error) => post('/report', { ok: false, reason: String(error), stack: error?.stack }));
+</script>

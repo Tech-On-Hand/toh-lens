@@ -51,6 +51,21 @@ Changing the bitrate mid-stream was inconclusive, not failing: measured output s
 
 Also observed: many more keyframes appeared than the configured GOP size implied (10 in ~7 s), suggesting the H.264 MFT does not fully honor `CODECAPI_AVEncMPVGOPSize` (a name inherited from the MPEG-2 encoder). Worth another look before relying on GOP length for bandwidth planning, but it does not affect decodability.
 
+## `native-capture/bin/webrtc_send.rs` + `webrtc.mjs` (works: end-to-end proof)
+
+The question this settles: does the video actually reach the Teacher app? Real WGC capture, real Media Foundation H.264 encoding, sent over a real `webrtc-rs` `RTCPeerConnection` with **no STUN or TURN server configured on either side**, to a real headless Chrome acting as the Teacher app, which is the same connectivity path a WebView2-hosted Teacher app would use. `webrtc.mjs` runs a tiny local HTTP relay to carry SDP/ICE — standing in for what Reverb carries in production — then launches both sides and checks what the browser actually decoded and measured, not just what Rust believes it sent.
+
+```
+cargo build --release --bin webrtc-send
+node webrtc.mjs
+```
+
+Result on the development PC, three consecutive runs, all passing: the two peers connected directly over UDP with **no relay** (`candidatePair: {local: "host", remote: "host"}` — confirmed from the browser's own `RTCPeerConnection.getStats()`, not asserted by either side), zero packets lost, zero decoder freezes, and Chrome's real video pipeline decoded 300+ frames per run of visibly real, non-blank video. Typical run: Rust sent ~358 access units (~125 KB) over 10 s; connection reached the `connected` state within about a second of the offer arriving.
+
+This clears the second-largest risk after decodability itself: on a shared LAN (which is the expected classroom setup, and is what this loopback test approximates), a direct connection negotiates and carries real video with no TURN deployment needed. It says nothing about networks with client isolation or a teacher connecting from off-site — those still fall back to TURN as planned, untested here.
+
+Implementation notes for whoever builds this for real: `TrackLocalStaticSample` accepts our encoder's Annex-B output as-is (the crate's H264 payloader finds NAL start codes itself, no conversion needed); `MediaEngine::register_default_codecs()` negotiated a mutually acceptable H.264 profile with Chrome's offer with no manual codec configuration; the RTCP reader loop on the sender (`rtp_sender.read(...)` in a spawned task) must run or the connection stalls, following the crate's own convention.
+
 ## `screen-capture/` (does not work; kept as a record)
 
 The idea: reuse the agent's WebView2 for `getDisplayMedia` and WebRTC, in a hidden window, so we would get browser encoders and adaptive bitrate for free.
@@ -65,10 +80,11 @@ If someone revisits this: try a WebView2 runtime other than the installed one, a
 
 ## What is still unproven for Milestone 4
 
-1. **WebRTC from Rust to the Teacher app.** `webrtc-rs` sending this H.264 stream to a WebView2 `RTCPeerConnection` over RTP, on a LAN, direct with no TURN. Chromium hides local IPs behind mDNS by default; the Teacher app's WebView2 can turn that off (`--disable-features=WebRtcHideLocalIpsWithMdns`), which the browser spike showed is accepted as a launch argument. RTP also fragments large keyframes across packets (FU-A), which the raw-file test here didn't need to do.
-2. **Bitrate control under real content.** Re-run the mid-stream bitrate-change check with something as complex as the WebView2 spike's scrolling-text target, since the flat-color test content couldn't stress it (see above).
-3. **Thumbnails vs full view.** Plan: one connection per student, with the encoder switched between a small, low-frame-rate profile and a larger one on request. Not yet measured.
-4. **Teacher broadcast to a whole class.** One teacher PC encoding for ~30 students is 30 encoder sessions unless we send one stream a different way. This is the largest performance risk.
-5. **Capturing a real monitor**, the wireless-display and multi-monitor cases, and that the secure desktop (UAC, lock screen) cannot be captured.
-6. **The capture border and privacy indicator.** WGC can draw a yellow border on some Windows builds; we still need our own always-visible "your screen may be viewed" indicator either way.
-7. **Hardware vs software encoding**, and behavior on older/weaker school hardware — not measured on this development PC.
+1. **A real WebView2 as the receiver**, not headless Chrome. They share the same rendering/media engine, so this is a low-risk gap, but it hasn't been run inside the actual Teacher app, and the Teacher app's own launch flags (`--disable-features=WebRtcHideLocalIpsWithMdns`) haven't been exercised together with a live connection.
+2. **Networks that block a direct connection** (client isolation, a teacher off-site). The design's TURN fallback is unbuilt and untested — this spike only proves the direct path, which is the expected common case.
+3. **Bitrate control under real content.** Re-run the mid-stream bitrate-change check with something as complex as the WebView2 spike's scrolling-text target, since the flat-color test content couldn't stress it (see above).
+4. **Thumbnails vs full view.** Plan: one connection per student, with the encoder switched between a small, low-frame-rate profile and a larger one on request, using the same `force_keyframe`/`set_bitrate` calls proven above. Not yet measured.
+5. **Teacher broadcast to a whole class.** One teacher PC encoding for ~30 students is 30 encoder sessions unless we send one stream a different way. This is the largest remaining performance risk.
+6. **Capturing a real monitor**, the wireless-display and multi-monitor cases, and that the secure desktop (UAC, lock screen) cannot be captured.
+7. **The capture border and privacy indicator.** WGC can draw a yellow border on some Windows builds; we still need our own always-visible "your screen may be viewed" indicator either way.
+8. **Hardware vs software encoding**, and behavior on older/weaker school hardware — not measured on this development PC.
