@@ -10,6 +10,8 @@
 //!
 //!   cargo build --release && target/release/native-capture-spike --ghost --encode
 
+mod mf;
+
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -306,6 +308,174 @@ fn run_case(width: i32, height: i32, ghost: bool, encode: bool) -> bool {
     frames > 30 && wrong == 0 && size == (width as u32, height as u32)
 }
 
+// --- raw H.264 bitstream mode -------------------------------------------------------
+//
+// Drives Windows' encoder directly (see mf.rs) instead of the file-writing helper in
+// `windows-capture`, and writes the access units WebRTC would send: length-prefixed,
+// with a key-frame flag, in `RawFrameFile`. Also exercises the two controls adaptive
+// quality needs: forcing a keyframe on demand and changing the bitrate mid-stream.
+
+const RAW_RUN_SECONDS: f64 = 7.0;
+const RAW_FPS: u32 = 30;
+const RAW_INITIAL_BITRATE: u32 = 1_500_000;
+const RAW_REDUCED_BITRATE: u32 = 300_000;
+const KEYFRAME_REQUEST_AT: f64 = 2.5;
+const BITRATE_SWITCH_AT: f64 = 4.5;
+
+/// `[u32 len LE][u8 key (0/1)][data...]` per frame, easy for a JS harness to parse.
+struct RawFrameFile(std::fs::File);
+
+impl RawFrameFile {
+    fn write(&mut self, frame: &mf::EncodedFrame) -> std::io::Result<()> {
+        use std::io::Write;
+        self.0.write_all(&(frame.data.len() as u32).to_le_bytes())?;
+        self.0.write_all(&[u8::from(frame.key)])?;
+        self.0.write_all(&frame.data)
+    }
+}
+
+#[derive(Default)]
+struct RawStats {
+    frames: AtomicU64,
+    keyframes: AtomicU64,
+    bytes_before_switch: AtomicU64,
+    bytes_total: AtomicU64,
+    keyframe_after_request_ms: Mutex<Option<f64>>,
+    first_frame_has_parameter_sets: Mutex<Option<bool>>,
+}
+
+struct RawCapturer {
+    encoder: mf::H264Encoder,
+    file: RawFrameFile,
+    stats: Arc<RawStats>,
+    start: Instant,
+    keyframe_requested: bool,
+    keyframe_request_time: f64,
+    bitrate_switched: bool,
+}
+
+impl GraphicsCaptureApiHandler for RawCapturer {
+    type Flags = (u32, u32, std::path::PathBuf, Arc<RawStats>);
+    type Error = Box<dyn std::error::Error + Send + Sync>;
+
+    fn new(context: Context<Self::Flags>) -> Result<Self, Self::Error> {
+        let (width, height, path, stats) = context.flags;
+        Ok(Self {
+            encoder: mf::H264Encoder::new(width, height, RAW_FPS, RAW_INITIAL_BITRATE)?,
+            file: RawFrameFile(std::fs::File::create(path)?),
+            stats,
+            start: Instant::now(),
+            keyframe_requested: false,
+            keyframe_request_time: 0.0,
+            bitrate_switched: false,
+        })
+    }
+
+    fn on_frame_arrived(&mut self, frame: &mut Frame, control: InternalCaptureControl) -> Result<(), Self::Error> {
+        let elapsed = self.start.elapsed().as_secs_f64();
+
+        if !self.keyframe_requested && elapsed >= KEYFRAME_REQUEST_AT {
+            self.encoder.force_keyframe()?;
+            self.keyframe_requested = true;
+            self.keyframe_request_time = elapsed;
+        }
+        if !self.bitrate_switched && elapsed >= BITRATE_SWITCH_AT {
+            self.encoder.set_bitrate(RAW_REDUCED_BITRATE)?;
+            self.bitrate_switched = true;
+            self.stats.bytes_before_switch.store(self.stats.bytes_total.load(Ordering::Relaxed), Ordering::Relaxed);
+        }
+
+        let mut buffer = frame.buffer()?;
+        let pitch = buffer.row_pitch() as usize;
+        let bgra = buffer.as_raw_buffer();
+        let timestamp = (elapsed * 10_000_000.0) as i64;
+        let duration = (10_000_000.0 / f64::from(RAW_FPS)) as i64;
+
+        for encoded in self.encoder.encode(bgra, pitch, timestamp, duration)? {
+            if self.stats.frames.load(Ordering::Relaxed) == 0 {
+                *self.stats.first_frame_has_parameter_sets.lock().unwrap() = Some(encoded.has_parameter_sets);
+            }
+            if encoded.key {
+                self.stats.keyframes.fetch_add(1, Ordering::Relaxed);
+                // The very first frame is always a keyframe; only the later, requested one counts.
+                if self.keyframe_requested && elapsed >= self.keyframe_request_time && self.stats.keyframe_after_request_ms.lock().unwrap().is_none() {
+                    *self.stats.keyframe_after_request_ms.lock().unwrap() = Some((elapsed - self.keyframe_request_time) * 1000.0);
+                }
+            }
+            self.stats.bytes_total.fetch_add(encoded.data.len() as u64, Ordering::Relaxed);
+            self.file.write(&encoded)?;
+            self.stats.frames.fetch_add(1, Ordering::Relaxed);
+        }
+
+        if elapsed >= RAW_RUN_SECONDS {
+            control.stop();
+        }
+        Ok(())
+    }
+}
+
+fn run_raw_case(width: i32, height: i32) -> bool {
+    let (hwnd, window_thread) = spawn_window(width, height, true);
+    std::thread::sleep(Duration::from_millis(300));
+
+    let stats = Arc::new(RawStats::default());
+    let path = std::env::temp_dir().join(format!("toh-klas-raw-spike-{width}x{height}.h264frames"));
+    let settings = Settings::new(
+        Window::from_raw_hwnd(hwnd as *mut std::ffi::c_void),
+        CursorCaptureSettings::WithoutCursor,
+        DrawBorderSettings::WithoutBorder,
+        SecondaryWindowSettings::Default,
+        MinimumUpdateIntervalSettings::Default,
+        DirtyRegionSettings::Default,
+        ColorFormat::Bgra8,
+        (width as u32, height as u32, path.clone(), stats.clone()),
+    );
+
+    let control = match RawCapturer::start_free_threaded(settings) {
+        Ok(control) => control,
+        Err(error) => {
+            println!("raw {width}x{height}: could not start: {error}");
+            unsafe { let _ = PostMessageW(Some(HWND(hwnd as *mut _)), WM_CLOSE, WPARAM(0), LPARAM(0)); }
+            return false;
+        }
+    };
+
+    std::thread::sleep(Duration::from_secs_f64(RAW_RUN_SECONDS + 1.0));
+    let _ = control.stop();
+    unsafe { let _ = PostMessageW(Some(HWND(hwnd as *mut _)), WM_CLOSE, WPARAM(0), LPARAM(0)); }
+    unsafe { let _ = windows::Win32::UI::WindowsAndMessaging::DestroyWindow(HWND(hwnd as *mut _)); }
+    let _ = window_thread.join();
+
+    let frames = stats.frames.load(Ordering::Relaxed);
+    let keyframes = stats.keyframes.load(Ordering::Relaxed);
+    let bytes_total = stats.bytes_total.load(Ordering::Relaxed);
+    let bytes_before = stats.bytes_before_switch.load(Ordering::Relaxed);
+    let before_kbps = bytes_before as f64 * 8.0 / KEYFRAME_REQUEST_AT.max(BITRATE_SWITCH_AT) / 1000.0;
+    let after_seconds = RAW_RUN_SECONDS - BITRATE_SWITCH_AT;
+    let after_kbps = (bytes_total - bytes_before) as f64 * 8.0 / after_seconds / 1000.0;
+    let first_has_params = stats.first_frame_has_parameter_sets.lock().unwrap().unwrap_or(false);
+    let keyframe_latency = *stats.keyframe_after_request_ms.lock().unwrap();
+
+    println!(
+        "raw {width}x{height}: {frames} access units, {keyframes} keyframes, first frame has SPS/PPS: {first_has_params}",
+    );
+    println!(
+        "  bitrate before switch (target {} kbps): {:.0} kbps | after dropping to {} kbps: {:.0} kbps",
+        RAW_INITIAL_BITRATE / 1000,
+        before_kbps,
+        RAW_REDUCED_BITRATE / 1000,
+        after_kbps,
+    );
+    println!("  requested keyframe at {KEYFRAME_REQUEST_AT}s, one appeared: {keyframe_latency:?} ms later");
+    println!("  frame container written to: {}", path.display());
+
+    frames > 60
+        && keyframes >= 2
+        && first_has_params
+        && keyframe_latency.is_some_and(|ms| ms < 500.0)
+        && after_kbps < before_kbps * 0.6
+}
+
 fn main() {
     // Nothing here may hang: if anything stalls, exit rather than leave a process behind.
     std::thread::spawn(|| {
@@ -313,6 +483,12 @@ fn main() {
         eprintln!("watchdog: exiting after 60s");
         std::process::exit(2);
     });
+
+    if std::env::args().any(|a| a == "--raw") {
+        let ok = run_raw_case(1280, 720);
+        println!("\n{}", if ok { "PASS" } else { "FAIL" });
+        std::process::exit(if ok { 0 } else { 1 });
+    }
 
     let ghost = std::env::args().any(|a| a == "--ghost");
     let encode = std::env::args().any(|a| a == "--encode");

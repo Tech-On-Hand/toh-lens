@@ -1,0 +1,85 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>decode</title>
+<canvas id="c" width="64" height="36"></canvas>
+<script>
+  // Feeds the Rust encoder's raw H.264 access units into Chrome's own WebCodecs
+  // decoder — the same decoder a WebView2-based Teacher app would use — with no
+  // WebRTC/RTP involved, to answer one question: is this bitstream valid and
+  // decodable by a real browser?
+  const post = (path, body) => fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).catch(() => {});
+
+  function parseContainer(buffer) {
+    const view = new DataView(buffer);
+    const frames = [];
+    let offset = 0;
+    while (offset + 5 <= buffer.byteLength) {
+      const length = view.getUint32(offset, true);
+      const key = view.getUint8(offset + 4) === 1;
+      const data = new Uint8Array(buffer, offset + 5, length);
+      frames.push({ key, data });
+      offset += 5 + length;
+    }
+    return frames;
+  }
+
+  function findNal(data, type) {
+    for (let i = 0; i + 4 < data.length; i++) {
+      if (data[i] === 0 && data[i + 1] === 0 && data[i + 2] === 1 && (data[i + 3] & 0x1f) === type) return data.subarray(i + 4);
+    }
+    return null;
+  }
+
+  function codecStringFor(sps) {
+    const hex = (n) => n.toString(16).padStart(2, '0');
+    return `avc1.${hex(sps[0])}${hex(sps[1])}${hex(sps[2])}`;
+  }
+
+  async function main() {
+    const buffer = await (await fetch('/frames')).arrayBuffer();
+    const frames = parseContainer(buffer);
+    const firstKey = frames.find((f) => f.key);
+    const sps = firstKey && findNal(firstKey.data, 7);
+    if (!sps) return post('/report', { ok: false, reason: 'no SPS found in the first keyframe' });
+    const codec = codecStringFor(sps);
+
+    const support = await VideoDecoder.isConfigSupported({ codec, hardwareAcceleration: 'no-preference' });
+    post('/log', { event: 'support-check', codec, supported: support.supported });
+
+    let decoded = 0;
+    let lastFrame = null;
+    const errors = [];
+    const decoder = new VideoDecoder({
+      output: (frame) => { decoded += 1; lastFrame?.close(); lastFrame = frame; },
+      error: (error) => errors.push(String(error)),
+    });
+    decoder.configure({ codec, avc: { format: 'annexb' }, optimizeForLatency: true });
+
+    const started = performance.now();
+    for (const [index, frame] of frames.entries()) {
+      decoder.decode(new EncodedVideoChunk({ type: frame.key ? 'key' : 'delta', timestamp: index * 1000, data: frame.data }));
+    }
+    await decoder.flush();
+    const decodeMs = performance.now() - started;
+
+    let meanBrightness = null;
+    let size = null;
+    if (lastFrame) {
+      size = { width: lastFrame.codedWidth, height: lastFrame.codedHeight };
+      const canvas = document.getElementById('c');
+      canvas.getContext('2d').drawImage(lastFrame, 0, 0, 64, 36);
+      const pixels = canvas.getContext('2d').getImageData(0, 0, 64, 36).data;
+      let sum = 0;
+      for (let i = 0; i < pixels.length; i += 4) sum += pixels[i] + pixels[i + 1] + pixels[i + 2];
+      meanBrightness = Math.round(sum / (pixels.length / 4) / 3);
+      lastFrame.close();
+    }
+
+    post('/report', {
+      ok: true, codec, hardwareSupported: support.supported, totalFrames: frames.length, keyframes: frames.filter((f) => f.key).length,
+      decoded, errors, decodeMs, decodedSize: size, meanBrightness,
+    });
+  }
+
+  main().catch((error) => post('/report', { ok: false, reason: String(error), stack: error?.stack }));
+</script>
