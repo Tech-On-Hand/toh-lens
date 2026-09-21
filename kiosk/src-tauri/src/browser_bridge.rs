@@ -155,9 +155,8 @@ pub fn bridge_dir() -> PathBuf {
         .join("TOH Klas")
 }
 
-fn write_bridge_file(port: u16, token: &str) -> io::Result<()> {
-    let dir = bridge_dir();
-    std::fs::create_dir_all(&dir)?;
+fn write_bridge_file(dir: &std::path::Path, port: u16, token: &str) -> io::Result<()> {
+    std::fs::create_dir_all(dir)?;
     let contents = json!({ "port": port, "token": token, "pid": std::process::id() }).to_string();
     let temporary = dir.join("bridge.json.tmp");
     std::fs::write(&temporary, contents)?;
@@ -167,11 +166,15 @@ fn write_bridge_file(port: u16, token: &str) -> io::Result<()> {
 /// Binds an ephemeral loopback port, publishes it (with a per-launch secret) for
 /// the native host, and serves connections until the process exits.
 pub async fn start(state: AppState) -> io::Result<u16> {
+    start_in(state, bridge_dir()).await
+}
+
+async fn start_in(state: AppState, dir: PathBuf) -> io::Result<u16> {
     let listener = TcpListener::bind(("127.0.0.1", 0)).await?;
     let port = listener.local_addr()?.port();
     let token = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
     *state.bridge.inner.token.lock().unwrap() = token.clone();
-    write_bridge_file(port, &token)?;
+    write_bridge_file(&dir, port, &token)?;
 
     tokio::spawn(async move {
         loop {
@@ -497,12 +500,11 @@ mod tests {
 
     async fn harness() -> Harness {
         let dir = std::env::temp_dir().join(format!("toh-klas-bridge-test-{}", Uuid::new_v4()));
-        std::env::set_var("TOH_KLAS_BRIDGE_DIR", &dir);
 
         let conn = crate::db::open(std::path::Path::new(":memory:")).unwrap();
         config_repo::save_provisioning(&conn, "http://localhost", "", 1, 7, "PC", Some("dev"), Some(1), 1).unwrap();
         let state = AppState::new(conn);
-        let port = start(state.clone()).await.unwrap();
+        let port = start_in(state.clone(), dir).await.unwrap();
         let token = state.bridge.inner.token.lock().unwrap().clone();
         Harness { state, port, token }
     }
