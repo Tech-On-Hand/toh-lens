@@ -12,7 +12,8 @@
 - **Admin UI** (`backend/`, Inertia + React, behind Fortify auth): create/list/delete for schools and classes, full create/edit/delete for students (admission number unique per school, enforced both client- and server-side) and computers, including a token issue/reissue action that rotates the previous token and shows the plaintext value exactly once, plus a per-computer sync health view (token last-used / last session synced) for remote diagnosis.
 - **Kiosk resilience**: a 20-minute inactivity auto-logout fallback (SRS Risk #2), automatic roster re-sync every 6h when online with a staleness note past 24h (SRS Risk #5), and a real (release-build-only) `explorer.exe` handoff on login/logout.
 - **M&E reporting (partial, SRS FR-5.3)**: a per-class/per-period usage report (total/active students, average session duration, students with no recorded usage) computed entirely from `login_sessions` — no LanSchool dependency. "Most-used application" is an explicit placeholder pending LanSchool data.
-- **Verified live:** offline login/logout, crash resume, real sync against the backend, cross-school data isolation, 66 automated backend tests passing (kiosk sync API + admin UI + reporting).
+- **Live monitoring**: a "who's logged in right now" view across all schools/computers, auto-refreshing every 20s — previously there was no way to see current lab usage without querying the database directly.
+- **Verified live:** offline login/logout, crash resume, real sync against the backend, cross-school data isolation, 69 automated backend tests passing (kiosk sync API + admin UI + reporting).
 - **Documented, not applied:** real Windows kiosk hardening (Winlogon shell swap, autologon, Task Manager disable) — see `provisioning/windows-kiosk-hardening.md`.
 
 ### Explicitly out of scope so far
