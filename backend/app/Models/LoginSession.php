@@ -7,7 +7,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['uuid', 'school_id', 'computer_id', 'student_id', 'admission_number', 'login_time', 'logout_time'])]
+#[Fillable([
+    'uuid', 'school_id', 'computer_id', 'classroom_id', 'class_id', 'student_id',
+    'admission_number', 'login_time', 'logout_time', 'status', 'authentication_method',
+])]
 class LoginSession extends Model
 {
     use HasFactory;
@@ -28,6 +31,11 @@ class LoginSession extends Model
     public function computer(): BelongsTo
     {
         return $this->belongsTo(Computer::class);
+    }
+
+    public function classroom(): BelongsTo
+    {
+        return $this->belongsTo(Classroom::class);
     }
 
     public function student(): BelongsTo

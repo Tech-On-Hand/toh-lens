@@ -16,7 +16,9 @@ class ComputerController extends Controller
 
         return response()->json([
             'id' => $computer->id,
+            'device_uuid' => $computer->device_uuid,
             'school_id' => $computer->school_id,
+            'classroom_id' => $computer->classroom_id,
             'class_id' => $computer->class_id,
             'name' => $computer->name,
             'role' => $computer->role,

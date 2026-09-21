@@ -9,10 +9,28 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['school_id', 'class_id', 'name', 'role'])]
+#[Fillable([
+    'device_uuid', 'school_id', 'classroom_id', 'class_id', 'name', 'role', 'hostname',
+    'operating_system', 'agent_version', 'enrolled_at', 'last_seen_at', 'presence_status', 'revoked_at',
+    'configuration_version',
+])]
 class Computer extends Model
 {
     use HasApiTokens, HasFactory;
+
+    protected function casts(): array
+    {
+        return [
+            'enrolled_at' => 'datetime',
+            'last_seen_at' => 'datetime',
+            'revoked_at' => 'datetime',
+        ];
+    }
+
+    public function classroom(): BelongsTo
+    {
+        return $this->belongsTo(Classroom::class);
+    }
 
     public function school(): BelongsTo
     {
@@ -27,5 +45,12 @@ class Computer extends Model
     public function loginSessions(): HasMany
     {
         return $this->hasMany(LoginSession::class);
+    }
+
+    public function isOnline(): bool
+    {
+        return $this->revoked_at === null
+            && $this->presence_status === 'online'
+            && $this->last_seen_at?->isAfter(now()->subSeconds(90));
     }
 }
