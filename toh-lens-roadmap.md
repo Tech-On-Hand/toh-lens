@@ -13,7 +13,8 @@
 - **Kiosk resilience**: a 20-minute inactivity auto-logout fallback (SRS Risk #2), automatic roster re-sync every 6h when online with a staleness note past 24h (SRS Risk #5), and a real (release-build-only) `explorer.exe` handoff on login/logout.
 - **M&E reporting (partial, SRS FR-5.3)**: a per-class/per-period usage report (total/active students, average session duration, students with no recorded usage) computed entirely from `login_sessions` — no LanSchool dependency. "Most-used application" is an explicit placeholder pending LanSchool data.
 - **Live monitoring**: a "who's logged in right now" view across all schools/computers, auto-refreshing every 20s — previously there was no way to see current lab usage without querying the database directly.
-- **Verified live:** offline login/logout, crash resume, real sync against the backend, cross-school data isolation, 69 automated backend tests passing (kiosk sync API + admin UI + reporting).
+- **Bulk student import**: a per-school CSV upload (admission_number, full_name, optional class_name/is_active), upserting by admission number so re-uploads correct rather than duplicate — the one-at-a-time form doesn't scale past a pilot classroom.
+- **Verified live:** offline login/logout, crash resume, real sync against the backend, cross-school data isolation, 72 automated backend tests passing (kiosk sync API + admin UI + reporting).
 - **Documented, not applied:** real Windows kiosk hardening (Winlogon shell swap, autologon, Task Manager disable) — see `provisioning/windows-kiosk-hardening.md`.
 
 ### Explicitly out of scope so far
@@ -55,9 +56,8 @@ Not started. Prerequisites before this can start for real:
 - [x] A way to onboard the pilot classroom's real students/computers without hand-editing seed data — the admin UI now covers this.
 
 ### Phase 6 — Deploy to Full School
-Not started:
-- [ ] A repeatable install package/script for the kiosk app + OS hardening steps, so a technician can provision a new lab computer without manual file editing.
-- [ ] A bulk-import path for onboarding a full school's students at once (the admin UI's one-at-a-time student form is fine for a pilot classroom, not for a whole school roster).
+- [x] A bulk-import path for onboarding a full school's students at once — CSV upload, upserts by admission number, per-row issues reported without failing the batch. `StudentController@import`, `/admin/students` page.
+- [ ] A repeatable install package/script for the kiosk app + OS hardening steps, so a technician can provision a new lab computer without manual file editing. **Needs real hardware to design against.**
 
 ### Phase 7 — TOH M&E
 Partially done — the session-only half of the report exists. Remaining, all blocked on Phase 2 (LanSchool Air) actually existing first:
@@ -80,13 +80,15 @@ Not started, but should require no new code if Phase 6 is done right:
 3. ~~Decide + implement the logout strategy~~ — done: explicit + 20-minute inactivity fallback with a warning.
 4. ~~Real `explorer.exe` handoff~~ — implemented, release-build-only, compile-verified but not yet run on real hardware.
 5. ~~Build the session-only half of M&E reporting~~ — done: per-class/per-period report, no LanSchool dependency.
-6. **LanSchool Air setup + org verification** (Phase 2) — coordination/config work with LanSchool itself, not something buildable in this repo. **Blocked on TOH staff, not code.** ← next up
-7. **Apply OS hardening** to one real pilot machine, including the real desktop-handoff build, and run the verification checklist. **Needs real hardware.**
-8. **Run the Phase 5 pilot** in one classroom.
-9. **Finish Phase 7**: LanSchool activity ingestion + join/ETL, then add "most-used application" to the existing report.
-10. **Scale out**: deployment/provisioning docs and bulk onboarding for Phase 6/8.
+6. ~~Live "who's logged in now" monitoring view~~ — done.
+7. ~~Bulk student CSV import~~ — done.
+8. **LanSchool Air setup + org verification** (Phase 2) — coordination/config work with LanSchool itself, not something buildable in this repo. **Blocked on TOH staff, not code.** ← next up
+9. **Apply OS hardening** to one real pilot machine, including the real desktop-handoff build, and run the verification checklist. **Needs real hardware.**
+10. **Run the Phase 5 pilot** in one classroom.
+11. **Finish Phase 7**: LanSchool activity ingestion + join/ETL, then add "most-used application" to the existing report.
+12. **Scale out**: a kiosk install/provisioning package for Phase 6/8.
 
-The remaining code-actionable item that isn't blocked on TOH staff or real hardware is the **Phase 6 bulk student import** — worth doing next if there's more to build before Phase 2/5 unblock.
+Everything code-actionable without LanSchool or real hardware is now done. What's left genuinely needs TOH staff action (Phase 2) or a physical machine (Phase 3/5/6 hardening) before more code makes sense.
 
 ---
 
