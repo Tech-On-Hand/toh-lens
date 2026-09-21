@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test \"test/*.test.js\""
+    "test": "node --test \"test/*.test.js\"",
+    "e2e": "node e2e/browser-e2e.mjs chrome && node e2e/browser-e2e.mjs edge"
   }
 }

@@ -38,9 +38,15 @@ URLs are stored in full, including query strings. Decide with the school whether
 
 Chrome and Edge ignore force-installed extensions hosted anywhere but their stores unless the device is domain-joined or otherwise managed. A standalone lab PC therefore needs the extension published to the Chrome Web Store and Edge Add-ons (an unlisted item is fine), which is what the script's default update URLs assume. If the store assigns a different ID than your manifest key, pass that ID to the script; it also pins the host manifest's `allowed_origins`, so only that extension can start the host.
 
+## Automated end-to-end test
+
+`browser-extension/e2e/browser-e2e.mjs` (run `npm run e2e` in `browser-extension/` after `cargo build --release` in `browser-host/`) starts a real headless Chrome or Edge with a throwaway profile, loads the real extension, and connects it through the real native host to a stand-in agent. It checks hello, snapshots, navigation history, open/navigate/close commands, refusal of `javascript:`/`file:`/`chrome:` URLs, wrong-browser commands, and automatic reconnection after the agent restarts. It adds one per-user registry key for the run and removes it afterwards. It passes on Chrome 153 and Edge 153.
+
+To try the extension by hand, use `chrome://extensions` -> Developer mode -> Load unpacked. Current Chrome ignores the `--load-extension` command-line flag; the test loads the extension through the DevTools protocol instead.
+
 ## Verification checklist
 
-Nothing below has been run on a real school machine yet.
+The end-to-end test above covers the browser side. Nothing below has been run on a real school machine yet, and the parts that depend on the real Student Agent, the Teacher app, and Windows policy are untested.
 
 - [ ] `chrome://policy` shows the extension under `ExtensionInstallForcelist` and the student cannot remove or disable it on `chrome://extensions`.
 - [ ] Incognito / InPrivate and Guest mode are unavailable.
