@@ -3,9 +3,11 @@
 namespace Tests\Feature\Admin;
 
 use App\Models\School;
+use App\Models\SchoolClass;
 use App\Models\Student;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class StudentControllerTest extends TestCase
@@ -106,6 +108,74 @@ class StudentControllerTest extends TestCase
             ->assertRedirect();
 
         $this->assertDatabaseHas('students', ['id' => $student->id, 'is_active' => false, 'full_name' => 'Amara Otieno Jr.']);
+    }
+
+    public function test_csv_import_creates_and_updates_students_and_matches_class_by_name(): void
+    {
+        $user = User::factory()->create();
+        $school = School::create(['name' => 'Demo Primary School']);
+        $class = SchoolClass::create(['school_id' => $school->id, 'name' => 'Grade 4 Blue']);
+        $existing = Student::create(['school_id' => $school->id, 'admission_number' => '1001', 'full_name' => 'Old Name']);
+
+        $csv = "admission_number,full_name,class_name\n"
+            ."1001,Amara Otieno,Grade 4 Blue\n" // updates the existing row
+            ."1002,Brian Mwangi,Grade 4 Blue\n"; // creates a new one
+
+        $file = UploadedFile::fake()->createWithContent('students.csv', $csv);
+
+        $this->actingAs($user)
+            ->post(route('admin.students.import'), ['school_id' => $school->id, 'csv' => $file])
+            ->assertRedirect();
+
+        $existing->refresh();
+        $this->assertSame('Amara Otieno', $existing->full_name);
+        $this->assertSame($class->id, $existing->class_id);
+
+        $this->assertDatabaseHas('students', [
+            'school_id' => $school->id,
+            'admission_number' => '1002',
+            'full_name' => 'Brian Mwangi',
+            'class_id' => $class->id,
+        ]);
+        $this->assertSame(2, Student::where('school_id', $school->id)->count());
+    }
+
+    public function test_csv_import_reports_issues_without_failing_the_whole_batch(): void
+    {
+        $user = User::factory()->create();
+        $school = School::create(['name' => 'Demo Primary School']);
+
+        $csv = "admission_number,full_name,class_name\n"
+            .",Missing Admission Number,\n" // skipped: no admission_number
+            ."1002,Brian Mwangi,Nonexistent Class\n"; // saved, but flagged
+
+        $file = UploadedFile::fake()->createWithContent('students.csv', $csv);
+
+        $response = $this->actingAs($user)
+            ->post(route('admin.students.import'), ['school_id' => $school->id, 'csv' => $file])
+            ->assertRedirect();
+
+        $response->assertInertiaFlash('importIssues');
+        $this->assertSame(1, Student::where('school_id', $school->id)->count());
+        $this->assertDatabaseHas('students', ['admission_number' => '1002', 'class_id' => null]);
+    }
+
+    public function test_csv_import_is_scoped_to_the_selected_school(): void
+    {
+        $user = User::factory()->create();
+        $schoolA = School::create(['name' => 'School A']);
+        $schoolB = School::create(['name' => 'School B']);
+        Student::create(['school_id' => $schoolB->id, 'admission_number' => '1001', 'full_name' => 'Existing In B']);
+
+        $csv = "admission_number,full_name\n1001,Imported Into A\n";
+        $file = UploadedFile::fake()->createWithContent('students.csv', $csv);
+
+        $this->actingAs($user)
+            ->post(route('admin.students.import'), ['school_id' => $schoolA->id, 'csv' => $file])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('students', ['school_id' => $schoolA->id, 'admission_number' => '1001', 'full_name' => 'Imported Into A']);
+        $this->assertDatabaseHas('students', ['school_id' => $schoolB->id, 'admission_number' => '1001', 'full_name' => 'Existing In B']);
     }
 
     public function test_an_authenticated_user_can_delete_a_student(): void

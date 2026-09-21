@@ -17,6 +17,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('schools', SchoolController::class)->only(['index', 'store', 'destroy']);
         Route::resource('classes', SchoolClassController::class)->only(['index', 'store', 'destroy']);
         Route::resource('students', StudentController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::post('students/import', [StudentController::class, 'import'])->name('students.import');
         Route::resource('computers', ComputerController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::post('computers/{computer}/issue-token', [ComputerController::class, 'issueToken'])->name('computers.issue-token');
         Route::get('reports', [ReportController::class, 'index'])->name('reports.index');

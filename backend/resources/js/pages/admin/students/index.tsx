@@ -1,4 +1,4 @@
-import { Form, Head, router } from '@inertiajs/react';
+import { Form, Head, router, usePage } from '@inertiajs/react';
 import StudentController from '@/actions/App/Http/Controllers/Admin/StudentController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
@@ -12,6 +12,10 @@ import type { ClassOption, SchoolOption, Student } from '@/types';
 
 const ROW_GRID = 'grid grid-cols-[1.5fr_1.5fr_2fr_1fr_auto_auto] items-center gap-3 px-4 py-2';
 
+type PageProps = {
+    flash?: { importIssues?: string[] };
+};
+
 export default function StudentsIndex({
     students,
     schools,
@@ -23,6 +27,9 @@ export default function StudentsIndex({
     classes: ClassOption[];
     filters: { school_id: number | null };
 }) {
+    const { flash } = usePage<PageProps>().props;
+    const importIssues = flash?.importIssues ?? [];
+
     const classLabel = (schoolId: number, classId: number | null) => {
         if (!classId) return null;
         return classes.find((c) => c.id === classId && c.school_id === schoolId) ?? null;
@@ -114,6 +121,67 @@ export default function StudentsIndex({
                                 </>
                             )}
                         </Form>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Bulk import from CSV</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <p className="text-muted-foreground text-sm">
+                            Columns: <code>admission_number</code>, <code>full_name</code>, optionally{' '}
+                            <code>class_name</code> (matched by name within the chosen school) and{' '}
+                            <code>is_active</code> (true/false, defaults to true). Re-uploading with the same
+                            admission numbers updates those students instead of duplicating them.
+                        </p>
+
+                        <Form {...StudentController.import.form()} resetOnSuccess className="flex flex-wrap items-end gap-3">
+                            {({ processing, errors }) => (
+                                <>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="import_school_id">School</Label>
+                                        <NativeSelect
+                                            id="import_school_id"
+                                            name="school_id"
+                                            defaultValue={filters.school_id ?? ''}
+                                            required
+                                        >
+                                            <option value="" disabled>
+                                                Select a school
+                                            </option>
+                                            {schools.map((school) => (
+                                                <option key={school.id} value={school.id}>
+                                                    {school.name}
+                                                </option>
+                                            ))}
+                                        </NativeSelect>
+                                        <InputError message={errors.school_id} />
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="csv">CSV file</Label>
+                                        <input id="csv" name="csv" type="file" accept=".csv,text/csv" required />
+                                        <InputError message={errors.csv} />
+                                    </div>
+
+                                    <Button disabled={processing}>{processing ? 'Importing…' : 'Import'}</Button>
+                                </>
+                            )}
+                        </Form>
+
+                        {importIssues.length > 0 && (
+                            <div className="space-y-1 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-500/30 dark:bg-amber-500/10">
+                                <p className="font-medium text-amber-900 dark:text-amber-200">
+                                    {importIssues.length} issue(s) from the last import:
+                                </p>
+                                <ul className="list-disc space-y-0.5 pl-5 text-amber-800 dark:text-amber-200">
+                                    {importIssues.map((issue, index) => (
+                                        <li key={index}>{issue}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
