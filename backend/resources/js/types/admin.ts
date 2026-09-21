@@ -55,6 +55,17 @@ export type ClassReport = {
     no_usage_students: NoUsageStudent[];
 };
 
+export type LiveSession = {
+    id: number;
+    admission_number: string;
+    full_name: string | null;
+    class_name: string | null;
+    school_name: string | null;
+    computer_name: string | null;
+    login_time: string;
+    minutes_logged_in: number;
+};
+
 export type Computer = {
     id: number;
     school_id: number;
