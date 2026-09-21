@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "TOH Klas",
+  "description": "Lets your teacher see which pages are open on this school computer during class and open, change, or close them.",
+  "version": "0.1.0",
+  "minimum_chrome_version": "110",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqZx4CJHz5Jav/1k9TTpS3sPczaa4nrMEuOosWPmwZtbyWaVLkP9kM52P2PnF3fYdT3N/+EjrVkLfDhHEeeKHI0FurqKdU2zgRc+AZk5f1Nekn9puS0imAdtAQ5o/E56o6TKNGPQ5HURtr3l4QlkIpCf/sSkYtoy4rSy8ufwmsq6t8I/oxVpuOn7JXxHv6Zyjwq1YaAT3wwe7C0neKzvOSn4h2NxPYQwHRTWQLrsulUFRAhF4X5rUjXdTI8pWDHTXcyeffP7ovlP1uR9AePWORpgK6eANVoSKrp+dQwI8mdWc9ndvTtxbfJFCmcnuwTy4r8nilh60VGS5B1l+IjkOyQIDAQAB",
+  "permissions": ["tabs", "nativeMessaging", "alarms"],
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  }
+}
