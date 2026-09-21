@@ -15,7 +15,7 @@
 - **Live monitoring**: a "who's logged in right now" view across all schools/computers, auto-refreshing every 20s — previously there was no way to see current lab usage without querying the database directly.
 - **Bulk student import**: a per-school CSV upload (admission_number, full_name, optional class_name/is_active), upserting by admission number so re-uploads correct rather than duplicate — the one-at-a-time form doesn't scale past a pilot classroom.
 - **Verified live:** offline login/logout, crash resume, real sync against the backend, cross-school data isolation, 72 automated backend tests passing (kiosk sync API + admin UI + reporting).
-- **Documented, not applied:** real Windows kiosk hardening (Winlogon shell swap, autologon, Task Manager disable) — see `provisioning/windows-kiosk-hardening.md`.
+- **Scripted, not applied:** real Windows kiosk hardening (Winlogon shell swap, autologon, Task Manager disable) — see `provisioning/windows-kiosk-hardening.md` and `provisioning/setup-kiosk-hardening.ps1`. The script has a `-DryRun` mode but hasn't run on real hardware.
 
 ### Explicitly out of scope so far
 - Any LanSchool Air integration (SRS §3.2 / Phase 2) — including ingesting its activity export, which the M&E report's "most-used application" field needs.
@@ -38,7 +38,8 @@ Not started. All configuration/coordination work, no code:
 ### Phase 3 — Student Identity Gate
 Mostly done. Remaining:
 - [x] Real desktop handoff (SRS FR-1.5/FR-1.6): `record_login` spawns `explorer.exe` and hides the kiosk window, `record_logout` kills it and reclaims the window — gated to release builds only (`shell_handoff.rs`), a no-op in every dev build so it can't disrupt a developer's own desktop. **Not yet tested on a real hardened machine** (only compile-checked in both debug and release) — genuinely needs a real device with the shell actually replaced, which this dev machine deliberately is not. Known gap: a crash-then-relaunch after login doesn't re-detect an already-running handed-off `explorer.exe`.
-- [ ] Apply the real OS hardening from `provisioning/windows-kiosk-hardening.md` to an actual machine and verify against its checklist.
+- [x] Automate the OS hardening steps: `provisioning/setup-kiosk-hardening.ps1` scripts account creation, autologon, shell replacement, and Task Manager/Run/Control Panel lockdown. **Not tested on real hardware** — has a `-DryRun` mode; the profile-forcing step in particular is the most likely thing to need adjustment on an actual machine.
+- [ ] Run that script on an actual machine and verify against the checklist in `windows-kiosk-hardening.md` §6.
 - [x] Decide on **explicit vs. inferred logout** (SRS Risk #2) — implemented as explicit + a 20-minute inactivity fallback (60s warning, then auto-logout), reusing the same `record_logout` path as the manual button.
 
 ### Phase 4 — Monitoring & Data Collection
@@ -82,11 +83,13 @@ Not started, but should require no new code if Phase 6 is done right:
 5. ~~Build the session-only half of M&E reporting~~ — done: per-class/per-period report, no LanSchool dependency.
 6. ~~Live "who's logged in now" monitoring view~~ — done.
 7. ~~Bulk student CSV import~~ — done.
-8. **LanSchool Air setup + org verification** (Phase 2) — coordination/config work with LanSchool itself, not something buildable in this repo. **Blocked on TOH staff, not code.** ← next up
-9. **Apply OS hardening** to one real pilot machine, including the real desktop-handoff build, and run the verification checklist. **Needs real hardware.**
-10. **Run the Phase 5 pilot** in one classroom.
-11. **Finish Phase 7**: LanSchool activity ingestion + join/ETL, then add "most-used application" to the existing report.
-12. **Scale out**: a kiosk install/provisioning package for Phase 6/8.
+8. ~~Automate the OS hardening steps~~ — done: `setup-kiosk-hardening.ps1`, dry-run capable, untested on real hardware.
+9. **LanSchool Air setup + org verification** (Phase 2) — coordination/config work with LanSchool itself, not something buildable in this repo. **Blocked on TOH staff, not code.** ← next up
+10. **Run the provisioning script** on one real pilot machine (`-DryRun` first), fix whatever the profile-forcing step needs adjusting, then work through the verification checklist. **Needs real hardware.**
+11. **Run the Phase 5 pilot** in one classroom.
+12. **Finish Phase 7**: LanSchool activity ingestion + join/ETL, then add "most-used application" to the existing report.
+
+Everything code-actionable without LanSchool or real hardware is now done, including a first pass at automating the hardware-dependent steps themselves.
 
 Everything code-actionable without LanSchool or real hardware is now done. What's left genuinely needs TOH staff action (Phase 2) or a physical machine (Phase 3/5/6 hardening) before more code makes sense.
 
