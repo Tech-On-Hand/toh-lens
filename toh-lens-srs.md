@@ -1,5 +1,7 @@
 # Software Requirements Specification: TOH Lens
 
+> Historical baseline. TOH Lens is being evolved into TOH Klas without the LanSchool dependency. See `toh-klas-architecture.md`, `toh-klas-contracts.md`, and `toh-klas-roadmap.md` for the current design.
+
 **Product:** TOH Lens — Computer Lab Identity & Monitoring System
 **Organization:** Tech On Hand (TOH)
 **Document status:** Draft, v1.0
