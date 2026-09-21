@@ -39,10 +39,10 @@ export default function ComputersIndex({
 
     return (
         <>
-            <Head title="Computers" />
+            <Head title="Devices" />
 
             <div className="space-y-6 p-4">
-                <Heading title="Computers" description="Each lab computer holds one API token used by the kiosk app to sync." />
+                <Heading title="Devices" description="Manage the permanent identity and health of each classroom computer." />
 
                 {issuedToken && (
                     <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">

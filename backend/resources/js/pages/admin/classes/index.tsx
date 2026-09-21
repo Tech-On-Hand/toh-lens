@@ -84,7 +84,7 @@ export default function ClassesIndex({
                                 <th className="px-4 py-2 font-medium">School</th>
                                 <th className="px-4 py-2 font-medium">Teacher</th>
                                 <th className="px-4 py-2 font-medium">Students</th>
-                                <th className="px-4 py-2 font-medium">Computers</th>
+                                <th className="px-4 py-2 font-medium">Devices</th>
                                 <th className="px-4 py-2" />
                             </tr>
                         </thead>

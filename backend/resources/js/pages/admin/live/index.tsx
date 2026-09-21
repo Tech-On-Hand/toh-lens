@@ -74,7 +74,7 @@ export default function LiveSessionsIndex({
                         <div>Student</div>
                         <div>School</div>
                         <div>Class</div>
-                        <div>Computer</div>
+                        <div>Device</div>
                         <div>Logged in for</div>
                     </div>
 

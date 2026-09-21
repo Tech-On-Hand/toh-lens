@@ -46,7 +46,7 @@ export default function SchoolsIndex({ schools }: { schools: School[] }) {
                                 <th className="px-4 py-2 font-medium">Name</th>
                                 <th className="px-4 py-2 font-medium">Classes</th>
                                 <th className="px-4 py-2 font-medium">Students</th>
-                                <th className="px-4 py-2 font-medium">Computers</th>
+                                <th className="px-4 py-2 font-medium">Devices</th>
                                 <th className="px-4 py-2" />
                             </tr>
                         </thead>

@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { Activity, BarChart3, BookOpen, FolderGit2, GraduationCap, LayoutGrid, Monitor, School, Users } from 'lucide-react';
+import { Activity, BarChart3, BookOpen, FolderGit2, GraduationCap, LayoutGrid, Monitor, Radio, School, Users } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
@@ -29,6 +29,11 @@ const mainNavItems: NavItem[] = [
         icon: LayoutGrid,
     },
     {
+        title: 'Klas Setup',
+        href: '/admin/klas',
+        icon: Radio,
+    },
+    {
         title: 'Schools',
         href: schoolsIndex(),
         icon: School,
@@ -44,7 +49,7 @@ const mainNavItems: NavItem[] = [
         icon: Users,
     },
     {
-        title: 'Computers',
+        title: 'Devices',
         href: computersIndex(),
         icon: Monitor,
     },
