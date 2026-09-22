@@ -22,6 +22,7 @@ class MarkOfflineDevices extends Command
                 ->orWhere('last_seen_at', '<', now()->subSeconds(90)))
             ->eachById(function (Computer $device) {
                 $device->update(['presence_status' => 'offline']);
+                $device->endCurrentScreenSession('device_offline');
                 DevicePresenceChanged::dispatch($device, 'offline');
             });
 

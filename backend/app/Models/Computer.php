@@ -57,6 +57,21 @@ class Computer extends Model
         return $this->hasMany(DeviceCommand::class);
     }
 
+    public function screenSessions(): HasMany
+    {
+        return $this->hasMany(ScreenSession::class);
+    }
+
+    public function currentScreenSession(): ?ScreenSession
+    {
+        return $this->screenSessions()->current()->latest('id')->first();
+    }
+
+    public function endCurrentScreenSession(string $reason): void
+    {
+        $this->currentScreenSession()?->update(['status' => 'ended', 'ended_at' => now(), 'end_reason' => $reason]);
+    }
+
     public function activeSession(): ?LoginSession
     {
         return $this->loginSessions()->where('status', 'active')->latest('login_time')->first();

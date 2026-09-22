@@ -47,6 +47,7 @@ class DeviceController extends ApiController
         Audit::record('device.revoked', $user, null, $device);
         DeviceRevoked::dispatch($device);
         $device->update(['revoked_at' => now(), 'presence_status' => 'offline']);
+        $device->endCurrentScreenSession('device_revoked');
         $device->tokens()->delete();
 
         return $this->success(['revoked' => true]);

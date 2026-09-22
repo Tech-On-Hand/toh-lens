@@ -126,3 +126,33 @@ A rule is a domain and matches that domain and every subdomain (`example.com` co
 ## Browser enforcement
 
 Enforced by the extension with `declarativeNetRequest` dynamic rules on top-level navigations only (page resources and embedded frames load normally). Blocked navigations go to a page inside the extension that shows why and carries the original address. Enforcement is reversible: when a rule is lifted, tabs parked on that page return to the address they were sent from. It covers Chrome and Edge only; other browsers, and anything that bypasses the extension, are not covered (see the deployment guide).
+
+# Milestone 4 contracts — screen sharing (thumbnails)
+
+Direction: each student device streams its own screen to at most one watching teacher at a time (not fan-out). One `webrtc-rs` connection per watched device, thumbnail quality only in this pass (no full-view escalation, no teacher-broadcast — see `spikes/README.md` for what those would need).
+
+The device has no live socket; it polls, same as commands and policy. The teacher already holds a Reverb socket for the classroom, so state changes the device makes are pushed to the teacher as a nudge (`device.screen.updated`, no payload beyond the ids) and the teacher re-fetches over REST. Nothing broadcasts to the device — it never listens.
+
+## REST
+
+| Method | Path | Principal | Purpose |
+|---|---|---|---|
+| POST | `/api/v1/teacher/classrooms/{c}/devices/{d}/screen-sessions` | Teacher (viewer+) | Start watching: body `{offer: {type:"offer", sdp}}`. `409 DEVICE_OFFLINE` / `409 SCREEN_ALREADY_WATCHED` |
+| GET | `/api/v1/teacher/classrooms/{c}/devices/{d}/screen-sessions/{id}?after=` | Teacher (viewer+) | Poll for the answer and new device-side candidates |
+| POST | `/api/v1/teacher/classrooms/{c}/devices/{d}/screen-sessions/{id}/candidates` | Teacher (viewer+) | Send the teacher's ICE candidates |
+| POST | `/api/v1/teacher/classrooms/{c}/devices/{d}/screen-sessions/{id}/end` | Viewer or controller | Stop watching |
+| GET | `/api/v1/device/screen-sessions/current?after=` | Active device | The device's own current session (`null` means stop capturing), plus new viewer-side candidates |
+| PATCH | `/api/v1/device/screen-sessions/{id}` | Active device | Answer: body `{answer: {type:"answer", sdp}}`. Idempotent once active |
+| POST | `/api/v1/device/screen-sessions/{id}/candidates` | Active device | Send the device's ICE candidates |
+
+The teacher device-grid snapshot (`GET .../devices`) gains `watched_by`: `null` if nobody is watching or the requester is the one watching, otherwise the watching teacher's name.
+
+## Lifecycle
+
+`pending` (offer given, no answer yet) → `active` (answered) → `ended`. `end_reason`: `ended` (a person stopped it), `expired` (device never answered within 30s), `device_offline` (heartbeat went stale while watched), `device_revoked`.
+
+Only one `pending`/`active` session per device (`current` scope); starting a second is refused, not queued. ICE candidates are stored per-session, tagged by source (`device`/`viewer`), and fetched with a client-tracked `after` cursor — the same shape on both sides.
+
+## Capture and encoding (device side)
+
+Windows Graphics Capture of the primary monitor, encoded with the same Media Foundation H.264 encoder proven in `spikes/native-capture`: thumbnail profile (`~320x180`, low fps, ~150 kbps) while watched, nothing captured or encoded otherwise. `webrtc-rs`, empty ICE server list (direct connections only — this is the case the spikes proved works on a shared classroom LAN; a network that needs TURN falls back to "can't connect," which is surfaced, not silently retried forever).
