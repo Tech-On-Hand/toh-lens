@@ -13,6 +13,7 @@ pub struct AppState {
     #[allow(dead_code)]
     pub desktop_child: Arc<Mutex<Option<Child>>>,
     pub bridge: crate::browser_bridge::Bridge,
+    pub screen_share: crate::screen_share::ScreenShare,
 }
 
 impl AppState {
@@ -27,6 +28,7 @@ impl AppState {
             http,
             desktop_child: Arc::new(Mutex::new(None)),
             bridge: crate::browser_bridge::Bridge::default(),
+            screen_share: crate::screen_share::ScreenShare::default(),
         }
     }
 }

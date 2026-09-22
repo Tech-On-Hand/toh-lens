@@ -3,8 +3,10 @@ mod browser_bridge;
 mod commands;
 mod credential_store;
 mod db;
+mod mf;
 mod models;
 mod policy_sync;
+mod screen_share;
 mod shell_handoff;
 mod state;
 mod sync;
@@ -41,6 +43,7 @@ pub fn run() {
                 loop {
                     interval.tick().await;
                     browser_bridge::tick(&bridge_state, tick_number).await;
+                    bridge_state.screen_share.tick(&bridge_state).await;
                     tick_number += 1;
                 }
             });

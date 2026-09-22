@@ -246,3 +246,79 @@ pub async fn fetch_policy(
         .data
         .ok_or_else(|| "The server returned an invalid policy response.".into())
 }
+
+pub async fn fetch_current_screen_session(
+    http: &reqwest::Client,
+    base_url: &str,
+    token: &str,
+    after: i64,
+) -> Result<Option<serde_json::Value>, String> {
+    let response = http
+        .get(join_url(base_url, "api/v1/device/screen-sessions/current"))
+        .bearer_auth(token)
+        .query(&[("after", after)])
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !response.status().is_success() {
+        return Err(format!("server returned {}", response.status()));
+    }
+
+    #[derive(serde::Deserialize)]
+    struct CurrentData {
+        session: Option<serde_json::Value>,
+    }
+
+    response
+        .json::<ApiEnvelope<CurrentData>>()
+        .await
+        .map_err(|e| e.to_string())?
+        .data
+        .map(|data| data.session)
+        .ok_or_else(|| "The server returned an invalid screen-session response.".into())
+}
+
+pub async fn answer_screen_session(
+    http: &reqwest::Client,
+    base_url: &str,
+    token: &str,
+    session_id: &str,
+    answer: &serde_json::Value,
+) -> Result<(), String> {
+    let response = http
+        .patch(join_url(base_url, &format!("api/v1/device/screen-sessions/{session_id}")))
+        .bearer_auth(token)
+        .json(&serde_json::json!({ "answer": answer }))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if response.status().is_success() {
+        Ok(())
+    } else {
+        Err(format!("server returned {}", response.status()))
+    }
+}
+
+pub async fn post_screen_session_candidate(
+    http: &reqwest::Client,
+    base_url: &str,
+    token: &str,
+    session_id: &str,
+    candidate: &serde_json::Value,
+) -> Result<(), String> {
+    let response = http
+        .post(join_url(base_url, &format!("api/v1/device/screen-sessions/{session_id}/candidates")))
+        .bearer_auth(token)
+        .json(&serde_json::json!({ "candidates": [candidate] }))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if response.status().is_success() {
+        Ok(())
+    } else {
+        Err(format!("server returned {}", response.status()))
+    }
+}
