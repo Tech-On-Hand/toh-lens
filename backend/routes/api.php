@@ -62,6 +62,7 @@ Route::prefix('v1')->group(function () {
         Route::post('teacher/classrooms/{classroom}/devices/{device}/screen-sessions', [TeacherScreenSessionController::class, 'store'])->middleware('throttle:30,1');
         Route::get('teacher/classrooms/{classroom}/devices/{device}/screen-sessions/{uuid}', [TeacherScreenSessionController::class, 'show']);
         Route::post('teacher/classrooms/{classroom}/devices/{device}/screen-sessions/{uuid}/candidates', [TeacherScreenSessionController::class, 'addCandidates']);
+        Route::post('teacher/classrooms/{classroom}/devices/{device}/screen-sessions/{uuid}/quality', [TeacherScreenSessionController::class, 'setQuality'])->middleware('throttle:30,1');
         Route::post('teacher/classrooms/{classroom}/devices/{device}/screen-sessions/{uuid}/end', [TeacherScreenSessionController::class, 'end']);
 
         Route::get('teacher/classrooms/{classroom}/policy', [TeacherPolicyController::class, 'show']);

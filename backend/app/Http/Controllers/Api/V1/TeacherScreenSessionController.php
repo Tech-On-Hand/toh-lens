@@ -104,6 +104,25 @@ class TeacherScreenSessionController extends ApiController
         return $this->success(['received' => count($data['candidates'])]);
     }
 
+    /** Switches an already-watched device between thumbnail and full-view quality. */
+    public function setQuality(Request $request, Classroom $classroom, Computer $device, string $uuid): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+        abort_unless($user->canViewClassroom($classroom), 403);
+
+        $session = ScreenSession::query()->current()
+            ->where('uuid', $uuid)->where('classroom_id', $classroom->id)->where('computer_id', $device->id)
+            ->firstOrFail();
+        abort_unless($session->viewer_id === $user->id || $user->canControlClassroom($classroom), 403);
+
+        $data = $request->validate(['quality' => ['required', 'in:thumb,full']]);
+        $session->update(['quality' => $data['quality']]);
+        Audit::record('screen.quality_changed', $user, $classroom, $device, ['session_id' => $session->uuid, 'quality' => $data['quality']]);
+
+        return $this->success($session->toSummary());
+    }
+
     public function end(Request $request, Classroom $classroom, Computer $device, string $uuid): JsonResponse
     {
         /** @var User $user */

@@ -171,6 +171,42 @@ class ScreenSessionTest extends TestCase
         $paged->assertJsonCount(0, 'data.session.candidates');
     }
 
+    public function test_the_viewer_can_switch_between_thumbnail_and_full_quality(): void
+    {
+        [$school, $classroom] = $this->makeClassroom();
+        $device = $this->makeDevice($school, $classroom);
+        $teacher = $this->makeTeacher($school, $classroom);
+        $id = $this->withHeaders($this->teacherHeaders($teacher))->postJson($this->watchUrl($device), $this->offer())->json('data.id');
+        $this->assertSame('thumb', ScreenSession::first()->quality);
+
+        $this->withHeaders($this->teacherHeaders($teacher))->postJson($this->watchUrl($device, "/{$id}/quality"), ['quality' => 'full'])
+            ->assertOk()->assertJsonPath('data.quality', 'full');
+        $this->assertSame('full', ScreenSession::first()->quality);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'screen.quality_changed', 'actor_id' => $teacher->id]);
+
+        // The device picks this up on its next poll, the same way it sees new candidates.
+        $forDevice = $this->withHeaders($this->deviceHeaders($device))->getJson('/api/v1/device/screen-sessions/current');
+        $forDevice->assertJsonPath('data.session.quality', 'full');
+
+        $this->withHeaders($this->teacherHeaders($teacher))->postJson($this->watchUrl($device, "/{$id}/quality"), ['quality' => 'thumb'])
+            ->assertOk()->assertJsonPath('data.quality', 'thumb');
+    }
+
+    public function test_only_the_viewer_or_a_classroom_controller_can_change_quality(): void
+    {
+        [$school, $classroom] = $this->makeClassroom();
+        $device = $this->makeDevice($school, $classroom);
+        $teacher = $this->makeTeacher($school, $classroom);
+        $id = $this->withHeaders($this->teacherHeaders($teacher))->postJson($this->watchUrl($device), $this->offer())->json('data.id');
+
+        $outsider = $this->makeTeacher($school, $classroom, 'observer');
+        $this->withHeaders($this->teacherHeaders($outsider))->postJson($this->watchUrl($device, "/{$id}/quality"), ['quality' => 'full'])
+            ->assertForbidden();
+
+        $this->withHeaders($this->teacherHeaders($teacher))->postJson($this->watchUrl($device, "/{$id}/quality"), ['quality' => 'ultra-hd'])
+            ->assertStatus(422);
+    }
+
     public function test_ending_a_session_makes_it_disappear_from_the_devices_poll(): void
     {
         [$school, $classroom] = $this->makeClassroom();
