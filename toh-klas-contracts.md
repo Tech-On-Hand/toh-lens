@@ -149,7 +149,7 @@ The teacher device-grid snapshot (`GET .../devices`) gains `watched_by`: `null` 
 
 ## Lifecycle
 
-`pending` (offer given, no answer yet) → `active` (answered) → `ended`. `end_reason`: `ended` (a person stopped it), `expired` (device never answered within 30s), `device_offline` (heartbeat went stale while watched), `device_revoked`.
+`pending` (offer given, no answer yet) → `active` (answered) → `ended`. `end_reason`: `ended` (a person stopped it), `expired` (device never answered within 30s), `device_offline` (heartbeat went stale while watched), `device_revoked`, `viewer_lost` (the teacher's own side went quiet for 30s while active — their app closed, crashed, or lost its connection without ending the session; nothing else notices this case, since the device stays online and keeps capturing). The teacher's poll of an active session (`GET .../screen-sessions/{id}`) doubles as its liveness signal.
 
 Only one `pending`/`active` session per device (`current` scope); starting a second is refused, not queued. ICE candidates are stored per-session, tagged by source (`device`/`viewer`), and fetched with a client-tracked `after` cursor — the same shape on both sides.
 

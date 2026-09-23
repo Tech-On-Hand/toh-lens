@@ -73,6 +73,10 @@ class TeacherScreenSessionController extends ApiController
             ->where('uuid', $uuid)->where('classroom_id', $classroom->id)->where('computer_id', $device->id)
             ->firstOrFail();
 
+        // The only sign the viewer is still there for an already-active session
+        // (see ExpireScreenSessions, which ends ones that go quiet).
+        $session->touch();
+
         $after = (int) $request->query('after', 0);
         $candidates = $session->candidates()->where('source', 'device')->where('id', '>', $after)->orderBy('id')->get();
 

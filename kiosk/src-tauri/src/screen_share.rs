@@ -152,6 +152,12 @@ fn normalize_sdp_line_endings(sdp: &str) -> String {
 
 impl ScreenShare {
     /// Ends the watch, if any: stops capturing and closes the connection. Safe to
+    /// Whether a teacher currently has this device's screen open — the only
+    /// state the on-screen "you're being watched" indicator needs.
+    pub fn is_watching(&self) -> bool {
+        self.watch.lock().unwrap().is_some()
+    }
+
     /// call when nothing is being watched.
     async fn teardown(&self) {
         let watch = self.watch.lock().unwrap().take();

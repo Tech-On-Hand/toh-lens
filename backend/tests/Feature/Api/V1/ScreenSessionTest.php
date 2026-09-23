@@ -242,13 +242,35 @@ class ScreenSessionTest extends TestCase
         $this->assertSame('ended', $session->status);
         $this->assertSame('expired', $session->end_reason);
 
-        // An already-active (answered) session is left alone by this job.
+        // An active session a viewer keeps polling is left alone by this job.
         $second = $this->makeDevice($school, $classroom);
         $id = $this->withHeaders($this->teacherHeaders($teacher))->postJson($this->watchUrl($second), $this->offer())->json('data.id');
         $this->withHeaders($this->deviceHeaders($second))->patchJson("/api/v1/device/screen-sessions/{$id}", $this->answer())->assertOk();
         $this->travel(31)->seconds();
+        $this->withHeaders($this->teacherHeaders($teacher))->getJson($this->watchUrl($second, "/{$id}?after=0"))->assertOk();
         $this->artisan('screen-sessions:expire')->assertSuccessful();
         $this->assertSame('active', ScreenSession::where('computer_id', $second->id)->first()->status);
+    }
+
+    public function test_the_expiry_job_ends_an_active_session_the_viewer_went_quiet_on(): void
+    {
+        // Nothing else ends an active session on its own — the device stays
+        // online and keeps capturing for a viewer whose app was closed,
+        // crashed, or lost its connection, unless this catches it.
+        [$school, $classroom] = $this->makeClassroom();
+        $device = $this->makeDevice($school, $classroom);
+        $teacher = $this->makeTeacher($school, $classroom);
+        $id = $this->withHeaders($this->teacherHeaders($teacher))->postJson($this->watchUrl($device), $this->offer())->json('data.id');
+        $this->withHeaders($this->deviceHeaders($device))->patchJson("/api/v1/device/screen-sessions/{$id}", $this->answer())->assertOk();
+
+        // The viewer polls once right after answering, then goes quiet.
+        $this->withHeaders($this->teacherHeaders($teacher))->getJson($this->watchUrl($device, "/{$id}?after=0"))->assertOk();
+        $this->travel(31)->seconds();
+        $this->artisan('screen-sessions:expire')->assertSuccessful();
+
+        $session = ScreenSession::first();
+        $this->assertSame('ended', $session->status);
+        $this->assertSame('viewer_lost', $session->end_reason);
     }
 
     public function test_the_device_grid_shows_who_is_watching(): void
