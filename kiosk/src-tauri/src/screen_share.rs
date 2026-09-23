@@ -32,12 +32,28 @@ use windows_capture::settings::{
     Settings,
 };
 
-/// Deliberately small: this is the "see what everyone is doing" thumbnail, not the
-/// full-view escalation (reserved for later — see toh-klas-contracts.md).
-const WIDTH: u32 = 320;
-const HEIGHT: u32 = 180;
-const FPS: u32 = 5;
-const BITRATE: u32 = 150_000;
+/// The "see what everyone is doing" grid view: deliberately small.
+const THUMB: EncodeTarget = EncodeTarget { width: 320, height: 180, fps: 5, bitrate: 150_000 };
+/// A closer look at one device, requested on demand. Capped well under the
+/// monitor's native resolution on purpose — this is still a direct P2P
+/// connection with no TURN relay, on what might be a shared classroom network.
+const FULL: EncodeTarget = EncodeTarget { width: 1280, height: 720, fps: 15, bitrate: 1_500_000 };
+
+#[derive(Debug, Clone, Copy)]
+struct EncodeTarget {
+    width: u32,
+    height: u32,
+    fps: u32,
+    bitrate: u32,
+}
+
+fn target_for(quality: &str) -> EncodeTarget {
+    if quality == "full" { FULL } else { THUMB }
+}
+
+fn default_quality() -> String {
+    "thumb".to_string()
+}
 
 #[derive(Debug, Deserialize)]
 struct CandidateDto {
@@ -49,6 +65,8 @@ struct CandidateDto {
 struct SessionDto {
     id: String,
     offer: Value,
+    #[serde(default = "default_quality")]
+    quality: String,
     #[serde(default)]
     candidates: Vec<CandidateDto>,
 }
@@ -58,8 +76,10 @@ type Capture = CaptureControl<ScreenCapturer, Box<dyn std::error::Error + Send +
 struct Watch {
     session_id: String,
     peer_connection: Arc<RTCPeerConnection>,
+    track: Arc<TrackLocalStaticSample>,
     capture: Option<Capture>,
     last_candidate_id: i64,
+    quality: String,
 }
 
 #[derive(Clone, Default)]
@@ -72,33 +92,41 @@ struct ScreenCapturer {
     track: Arc<TrackLocalStaticSample>,
     runtime: tokio::runtime::Handle,
     start: Instant,
+    fps: u32,
 }
 
 impl GraphicsCaptureApiHandler for ScreenCapturer {
-    type Flags = (Arc<TrackLocalStaticSample>, tokio::runtime::Handle);
+    type Flags = (Arc<TrackLocalStaticSample>, tokio::runtime::Handle, EncodeTarget);
     type Error = Box<dyn std::error::Error + Send + Sync>;
 
     fn new(context: Context<Self::Flags>) -> Result<Self, Self::Error> {
-        let (track, runtime) = context.flags;
-        Ok(Self { encoder: crate::mf::H264Encoder::new(WIDTH, HEIGHT, FPS, BITRATE)?, track, runtime, start: Instant::now() })
+        let (track, runtime, target) = context.flags;
+        Ok(Self {
+            encoder: crate::mf::H264Encoder::new(target.width, target.height, target.fps, target.bitrate)?,
+            track,
+            runtime,
+            start: Instant::now(),
+            fps: target.fps,
+        })
     }
 
     fn on_frame_arrived(&mut self, frame: &mut Frame, _control: InternalCaptureControl) -> Result<(), Self::Error> {
         let elapsed = self.start.elapsed().as_secs_f64();
+        let (src_width, src_height) = (frame.width() as usize, frame.height() as usize);
         let mut buffer = frame.buffer()?;
         let pitch = buffer.row_pitch() as usize;
         let bgra = buffer.as_raw_buffer();
         let timestamp = (elapsed * 10_000_000.0) as i64;
-        let duration_100ns = (10_000_000.0 / f64::from(FPS)) as i64;
+        let duration_100ns = (10_000_000.0 / f64::from(self.fps)) as i64;
 
         // Frames written before the connection is up are silently dropped by the
         // track (nothing is bound to send them to yet); that is fine, the next
         // keyframe interval catches up.
-        for encoded in self.encoder.encode(bgra, pitch, timestamp, duration_100ns)? {
+        for encoded in self.encoder.encode(bgra, pitch, src_width, src_height, timestamp, duration_100ns)? {
             let track = self.track.clone();
             let sample = Sample {
                 data: encoded.data.into(),
-                duration: Duration::from_secs_f64(1.0 / f64::from(FPS)),
+                duration: Duration::from_secs_f64(1.0 / f64::from(self.fps)),
                 timestamp: SystemTime::now(),
                 ..Default::default()
             };
@@ -124,7 +152,7 @@ async fn new_peer_connection() -> Result<Arc<RTCPeerConnection>, String> {
     api.new_peer_connection(RTCConfiguration::default()).await.map(Arc::new).map_err(|e| e.to_string())
 }
 
-fn start_capture(track: Arc<TrackLocalStaticSample>) -> Result<Capture, String> {
+fn start_capture(track: Arc<TrackLocalStaticSample>, target: EncodeTarget) -> Result<Capture, String> {
     let monitor = Monitor::primary().map_err(|e| e.to_string())?;
     let settings = Settings::new(
         monitor,
@@ -134,7 +162,7 @@ fn start_capture(track: Arc<TrackLocalStaticSample>) -> Result<Capture, String> 
         MinimumUpdateIntervalSettings::Default,
         DirtyRegionSettings::Default,
         ColorFormat::Bgra8,
-        (track, tokio::runtime::Handle::current()),
+        (track, tokio::runtime::Handle::current(), target),
     );
     ScreenCapturer::start_free_threaded(settings).map_err(|e| e.to_string())
 }
@@ -151,13 +179,13 @@ fn normalize_sdp_line_endings(sdp: &str) -> String {
 }
 
 impl ScreenShare {
-    /// Ends the watch, if any: stops capturing and closes the connection. Safe to
     /// Whether a teacher currently has this device's screen open — the only
     /// state the on-screen "you're being watched" indicator needs.
     pub fn is_watching(&self) -> bool {
         self.watch.lock().unwrap().is_some()
     }
 
+    /// Ends the watch, if any: stops capturing and closes the connection. Safe to
     /// call when nothing is being watched.
     async fn teardown(&self) {
         let watch = self.watch.lock().unwrap().take();
@@ -230,8 +258,33 @@ impl ScreenShare {
         }
         let _ = crate::api_client::answer_screen_session(&reqwest::Client::new(), base_url, token, &session.id, &answer_json).await;
 
-        let capture = start_capture(track).ok();
-        *self.watch.lock().unwrap() = Some(Watch { session_id: session.id.clone(), peer_connection, capture, last_candidate_id: 0 });
+        let capture = start_capture(track.clone(), target_for(&session.quality)).ok();
+        *self.watch.lock().unwrap() = Some(Watch {
+            session_id: session.id.clone(),
+            peer_connection,
+            track,
+            capture,
+            last_candidate_id: 0,
+            quality: session.quality.clone(),
+        });
+    }
+
+    /// Switches an already-open watch between thumbnail and full-view quality.
+    /// Media Foundation doesn't support changing a live transform's output frame
+    /// size, so this rebuilds the capture+encoder pair rather than reconfiguring
+    /// it in place — but reuses the same track (and so the same peer connection),
+    /// which the viewer already negotiated and never needs to touch again.
+    fn apply_quality(&self, session: &SessionDto) {
+        let mut guard = self.watch.lock().unwrap();
+        let Some(watch) = guard.as_mut() else { return };
+        if watch.session_id != session.id || watch.quality == session.quality {
+            return;
+        }
+        if let Some(capture) = watch.capture.take() {
+            let _ = capture.stop();
+        }
+        watch.capture = start_capture(watch.track.clone(), target_for(&session.quality)).ok();
+        watch.quality = session.quality.clone();
     }
 
     /// Applies viewer candidates that arrived since our last poll of this same session.
@@ -270,6 +323,7 @@ impl ScreenShare {
 
         if self.current_session_id().as_deref() == Some(session.id.as_str()) {
             self.apply_candidates(&session).await;
+            self.apply_quality(&session);
         } else {
             self.teardown().await;
             self.begin(&base_url, &token, &session).await;
