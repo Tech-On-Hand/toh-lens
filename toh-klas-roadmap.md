@@ -24,6 +24,8 @@ Allow/block rules, focus sessions, offline policy cache, audit records, and reve
 
 Windows Graphics Capture, adaptive WebRTC thumbnails/full view, teacher broadcast, signaling, TURN deployment, and visible privacy indicators.
 
+**Status:** thumbnail-quality one-viewer-per-device watching is built and type-checked end to end: backend signaling API, the kiosk agent's real capture→encode→WebRTC pipeline (Windows Graphics Capture of the primary monitor, Media Foundation H.264, `webrtc-rs`), and a Teacher app "Watch" button per device rendering the live thumbnail (`RTCPeerConnection` runs directly in the Teacher app's webview, signaling through the same REST endpoints the device polls). Not yet run against a real school machine. Deliberately out of scope for this slice: full-view escalation, teacher-broadcast, TURN (direct connections only — a network that needs a relay surfaces as "can't connect," not a silent retry), and an on-device "you're being watched" indicator for the student.
+
 ## Milestone 5 — Communication
 
 Teacher/student chat, announcements, help requests, collaborative teaching permissions, delivery/read state, and offline-safe queues.

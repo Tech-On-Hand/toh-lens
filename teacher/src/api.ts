@@ -1,5 +1,15 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { BrowserTab, Classroom, ClassroomPolicy, CommandSummary, Device, FocusSession, TeacherSession } from "./types";
+import type {
+  BrowserTab,
+  Classroom,
+  ClassroomPolicy,
+  CommandSummary,
+  Device,
+  FocusSession,
+  ScreenSessionPoll,
+  ScreenSessionSummary,
+  TeacherSession,
+} from "./types";
 
 export const login = (apiBaseUrl: string, email: string, password: string) =>
   invoke<TeacherSession>("login", { apiBaseUrl, email, password });
@@ -21,3 +31,11 @@ export const startFocus = (classroomId: number, allowedDomains: string[], durati
 export const endFocus = (classroomId: number, focusId: string) => invoke<FocusSession>("end_focus", { classroomId, focusId });
 export const addBlockRule = (classroomId: number, domain: string) => invoke<unknown>("add_block_rule", { classroomId, domain });
 export const removeBlockRule = (classroomId: number, ruleId: number) => invoke<unknown>("remove_block_rule", { classroomId, ruleId });
+export const startScreenSession = (classroomId: number, deviceId: number, offer: RTCSessionDescriptionInit) =>
+  invoke<ScreenSessionSummary>("start_screen_session", { classroomId, deviceId, offer });
+export const pollScreenSession = (classroomId: number, deviceId: number, sessionId: string, after: number) =>
+  invoke<ScreenSessionPoll>("poll_screen_session", { classroomId, deviceId, sessionId, after });
+export const sendScreenCandidates = (classroomId: number, deviceId: number, sessionId: string, candidates: RTCIceCandidateInit[]) =>
+  invoke<unknown>("send_screen_candidates", { classroomId, deviceId, sessionId, candidates });
+export const endScreenSession = (classroomId: number, deviceId: number, sessionId: string) =>
+  invoke<unknown>("end_screen_session", { classroomId, deviceId, sessionId });

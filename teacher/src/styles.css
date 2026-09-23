@@ -48,7 +48,12 @@ header .eyebrow { margin-top: 0; }
 .status { font-size: 11px; font-weight: 750; text-transform: capitalize; }
 .status.online { color: #2f7d4f; }
 .status.offline { color: #9ba49e; }
-.screen-placeholder { height: 125px; display: grid; place-items: center; margin: 15px 0; border-radius: 11px; color: #7c9183; background: #edf2eb; font-size: 30px; font-weight: 800; }
+.screen-placeholder { position: relative; height: 125px; display: grid; place-items: center; margin: 15px 0; border-radius: 11px; color: #7c9183; background: #edf2eb; font-size: 30px; font-weight: 800; overflow: hidden; }
+.screen-placeholder video { width: 100%; height: 100%; object-fit: cover; background: #10160f; }
+.thumb-watch { position: absolute; right: 8px; bottom: 8px; padding: 5px 9px; border: 1px solid #cbd7ca; border-radius: 7px; background: white; color: #2d5a3d; font-size: 11px; font-weight: 600; cursor: pointer; }
+.thumb-watch:disabled { opacity: .6; cursor: default; }
+.thumb-stop { position: absolute; right: 8px; bottom: 8px; padding: 5px 9px; border: 0; border-radius: 7px; background: rgba(16,22,15,.65); color: white; font-size: 11px; font-weight: 600; cursor: pointer; }
+.thumb-error { margin: 6px 0 0; font-size: 11px; color: #943c3c; }
 .device-card h3 { margin: 5px 0; font-size: 16px; }
 .device-card p { margin: 0; color: #7b8980; font-size: 12px; }
 .danger { margin-top: 14px; padding: 6px 9px; border: 1px solid #e2caca; border-radius: 7px; color: #943c3c; background: #fffafa; font-size: 11px; }

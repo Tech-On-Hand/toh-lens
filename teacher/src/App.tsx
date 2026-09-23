@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import * as api from "./api";
 import BrowserPanel, { hostOf } from "./BrowserPanel";
 import PolicyPanel from "./PolicyPanel";
+import ScreenThumbnail from "./ScreenThumbnail";
 import type { Classroom, Device, TeacherSession } from "./types";
 
 function Login({ onLogin }: { onLogin: (session: TeacherSession) => void }) {
@@ -78,9 +79,9 @@ function ClassroomView({ session, onLogout }: { session: TeacherSession; onLogou
       </header>
       <section className="summary"><div><strong>{devices.length}</strong><span>Devices</span></div><div><strong>{online}</strong><span>Online now</span></div><div><strong>{devices.filter(d => d.active_session).length}</strong><span>Active students</span></div></section>
       <section className={view === "grid" ? "device-grid" : "device-list"}>
-        {devices.map(device => <article className="device-card" key={device.device_uuid}>
+        {selected && devices.map(device => <article className="device-card" key={device.device_uuid}>
           <div className="device-head"><strong>{device.name}</strong><span className={`status ${device.status}`}>● {device.status}</span></div>
-          <div className="screen-placeholder"><span>{device.active_session?.student?.full_name?.slice(0, 1) ?? "—"}</span></div>
+          <ScreenThumbnail classroomId={selected.id} device={device} />
           <h3>{device.active_session?.student?.full_name ?? "No active student"}</h3>
           <p>{device.hostname ?? "Hostname unavailable"} · Agent {device.agent_version ?? "—"}</p>
           {device.active_tab && <p className="active-tab" title={device.active_tab.url ?? ""}><strong>{hostOf(device.active_tab.url)}</strong> {device.active_tab.title}</p>}
