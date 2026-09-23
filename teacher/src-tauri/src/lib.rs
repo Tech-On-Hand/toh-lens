@@ -235,6 +235,15 @@ async fn send_screen_candidates(state: State<'_, AppState>, classroom_id: i64, d
 }
 
 #[tauri::command]
+async fn set_screen_quality(state: State<'_, AppState>, classroom_id: i64, device_id: i64, session_id: String, quality: String) -> Result<serde_json::Value, String> {
+    authenticated_send(
+        &state, reqwest::Method::POST,
+        &format!("api/v1/teacher/classrooms/{classroom_id}/devices/{device_id}/screen-sessions/{session_id}/quality"),
+        Some(serde_json::json!({ "quality": quality })),
+    ).await
+}
+
+#[tauri::command]
 async fn end_screen_session(state: State<'_, AppState>, classroom_id: i64, device_id: i64, session_id: String) -> Result<serde_json::Value, String> {
     authenticated_send(
         &state, reqwest::Method::POST,
@@ -308,7 +317,7 @@ pub fn run() {
             session: Arc::new(Mutex::new(None)),
             realtime_generation: Arc::new(AtomicU64::new(0)),
         })
-        .invoke_handler(tauri::generate_handler![login, restore_session, logout, list_classrooms, list_devices, list_browser_tabs, send_command, get_command, get_policy, start_focus, end_focus, add_block_rule, remove_block_rule, revoke_device, start_realtime, start_screen_session, poll_screen_session, send_screen_candidates, end_screen_session])
+        .invoke_handler(tauri::generate_handler![login, restore_session, logout, list_classrooms, list_devices, list_browser_tabs, send_command, get_command, get_policy, start_focus, end_focus, add_block_rule, remove_block_rule, revoke_device, start_realtime, start_screen_session, poll_screen_session, send_screen_candidates, set_screen_quality, end_screen_session])
         .run(tauri::generate_context!())
         .expect("error while running TOH Klas Teacher");
 }

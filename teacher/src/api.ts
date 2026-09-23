@@ -37,5 +37,7 @@ export const pollScreenSession = (classroomId: number, deviceId: number, session
   invoke<ScreenSessionPoll>("poll_screen_session", { classroomId, deviceId, sessionId, after });
 export const sendScreenCandidates = (classroomId: number, deviceId: number, sessionId: string, candidates: RTCIceCandidateInit[]) =>
   invoke<unknown>("send_screen_candidates", { classroomId, deviceId, sessionId, candidates });
+export const setScreenQuality = (classroomId: number, deviceId: number, sessionId: string, quality: "thumb" | "full") =>
+  invoke<ScreenSessionSummary>("set_screen_quality", { classroomId, deviceId, sessionId, quality });
 export const endScreenSession = (classroomId: number, deviceId: number, sessionId: string) =>
   invoke<unknown>("end_screen_session", { classroomId, deviceId, sessionId });

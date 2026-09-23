@@ -10,8 +10,10 @@ export default function ScreenThumbnail({ classroomId, device }: { classroomId: 
   const [watching, setWatching] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [quality, setQuality] = useState<"thumb" | "full">("thumb");
   const videoRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const cursorRef = useRef(0);
   const pollRef = useRef<number | null>(null);
@@ -26,6 +28,7 @@ export default function ScreenThumbnail({ classroomId, device }: { classroomId: 
       pcRef.current?.close();
       pcRef.current = null;
       if (videoRef.current) videoRef.current.srcObject = null;
+      streamRef.current = null;
       if (endRemote && sessionIdRef.current) {
         void api.endScreenSession(classroomId, device.id, sessionIdRef.current).catch(() => {});
       }
@@ -33,9 +36,18 @@ export default function ScreenThumbnail({ classroomId, device }: { classroomId: 
       cursorRef.current = 0;
       pendingCandidatesRef.current = [];
       setWatching(false);
+      setQuality("thumb");
     },
     [classroomId, device.id],
   );
+
+  // Full view moves the <video> to a different position in the tree (an
+  // overlay, not the card), so React mounts a fresh element there rather than
+  // reusing the old one — its srcObject has to be reattached, since ontrack
+  // only fires once and won't do it for us.
+  useEffect(() => {
+    if (videoRef.current && streamRef.current) videoRef.current.srcObject = streamRef.current;
+  }, [quality]);
 
   // Stop watching if the card unmounts (classroom switch, device revoked, etc.)
   // rather than leaving an orphaned session tying up the device.
@@ -55,6 +67,7 @@ export default function ScreenThumbnail({ classroomId, device }: { classroomId: 
     if (!sessionId || !pc) return;
     try {
       const session = await api.pollScreenSession(classroomId, device.id, sessionId, cursorRef.current);
+      setQuality(session.quality);
       if (session.answer && pc.remoteDescription === null) await pc.setRemoteDescription(session.answer);
       for (const candidate of session.candidates) {
         cursorRef.current = Math.max(cursorRef.current, candidate.id);
@@ -85,6 +98,7 @@ export default function ScreenThumbnail({ classroomId, device }: { classroomId: 
       pcRef.current = pc;
       pc.addTransceiver("video", { direction: "recvonly" });
       pc.ontrack = (event) => {
+        streamRef.current = event.streams[0];
         if (videoRef.current) videoRef.current.srcObject = event.streams[0];
       };
       pc.onicecandidate = (event) => {
@@ -110,15 +124,31 @@ export default function ScreenThumbnail({ classroomId, device }: { classroomId: 
     }
   }, [classroomId, device.id, flushCandidates, poll, teardown]);
 
+  const toggleQuality = useCallback(async () => {
+    const sessionId = sessionIdRef.current;
+    if (!sessionId) return;
+    const next = quality === "full" ? "thumb" : "full";
+    setQuality(next); // optimistic; the next poll confirms it either way
+    try {
+      await api.setScreenQuality(classroomId, device.id, sessionId, next);
+    } catch (reason) {
+      setError(String(reason));
+    }
+  }, [classroomId, device.id, quality]);
+
   const watchedByOther = device.watched_by !== null;
+  const video = <video ref={videoRef} autoPlay muted playsInline />;
 
   return (
     <>
       <div className="screen-placeholder">
         {watching ? (
           <>
-            <video ref={videoRef} autoPlay muted playsInline />
-            <button className="thumb-stop" onClick={() => teardown(true)}>Stop</button>
+            {quality !== "full" && video}
+            <div className="thumb-controls">
+              <button className="thumb-quality" onClick={() => void toggleQuality()}>Full view</button>
+              <button className="thumb-stop" onClick={() => teardown(true)}>Stop</button>
+            </div>
           </>
         ) : (
           <>
@@ -137,6 +167,21 @@ export default function ScreenThumbnail({ classroomId, device }: { classroomId: 
         )}
       </div>
       {error && <p className="thumb-error">{error}</p>}
+
+      {watching && quality === "full" && (
+        <div className="screen-fullview-backdrop" onClick={() => void toggleQuality()}>
+          <div className="screen-fullview" onClick={(event) => event.stopPropagation()}>
+            <header>
+              <strong>{device.name}</strong>
+              <div>
+                <button className="ghost" onClick={() => void toggleQuality()}>Back to thumbnail</button>
+                <button className="danger" onClick={() => teardown(true)}>Stop</button>
+              </div>
+            </header>
+            {video}
+          </div>
+        </div>
+      )}
     </>
   );
 }

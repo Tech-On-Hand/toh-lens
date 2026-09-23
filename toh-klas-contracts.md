@@ -129,7 +129,7 @@ Enforced by the extension with `declarativeNetRequest` dynamic rules on top-leve
 
 # Milestone 4 contracts — screen sharing (thumbnails)
 
-Direction: each student device streams its own screen to at most one watching teacher at a time (not fan-out). One `webrtc-rs` connection per watched device, thumbnail quality only in this pass (no full-view escalation, no teacher-broadcast — see `spikes/README.md` for what those would need).
+Direction: each student device streams its own screen to at most one watching teacher at a time (not fan-out). One `webrtc-rs` connection per watched device, switchable between thumbnail and full-view quality on that same connection (no teacher-broadcast — see `spikes/README.md` for what that would need).
 
 The device has no live socket; it polls, same as commands and policy. The teacher already holds a Reverb socket for the classroom, so state changes the device makes are pushed to the teacher as a nudge (`device.screen.updated`, no payload beyond the ids) and the teacher re-fetches over REST. Nothing broadcasts to the device — it never listens.
 
@@ -140,6 +140,7 @@ The device has no live socket; it polls, same as commands and policy. The teache
 | POST | `/api/v1/teacher/classrooms/{c}/devices/{d}/screen-sessions` | Teacher (viewer+) | Start watching: body `{offer: {type:"offer", sdp}}`. `409 DEVICE_OFFLINE` / `409 SCREEN_ALREADY_WATCHED` |
 | GET | `/api/v1/teacher/classrooms/{c}/devices/{d}/screen-sessions/{id}?after=` | Teacher (viewer+) | Poll for the answer and new device-side candidates |
 | POST | `/api/v1/teacher/classrooms/{c}/devices/{d}/screen-sessions/{id}/candidates` | Teacher (viewer+) | Send the teacher's ICE candidates |
+| POST | `/api/v1/teacher/classrooms/{c}/devices/{d}/screen-sessions/{id}/quality` | Viewer or controller | Switch quality: body `{quality: "thumb"\|"full"}` |
 | POST | `/api/v1/teacher/classrooms/{c}/devices/{d}/screen-sessions/{id}/end` | Viewer or controller | Stop watching |
 | GET | `/api/v1/device/screen-sessions/current?after=` | Active device | The device's own current session (`null` means stop capturing), plus new viewer-side candidates |
 | PATCH | `/api/v1/device/screen-sessions/{id}` | Active device | Answer: body `{answer: {type:"answer", sdp}}`. Idempotent once active |
@@ -155,4 +156,6 @@ Only one `pending`/`active` session per device (`current` scope); starting a sec
 
 ## Capture and encoding (device side)
 
-Windows Graphics Capture of the primary monitor, encoded with the same Media Foundation H.264 encoder proven in `spikes/native-capture`: thumbnail profile (`~320x180`, low fps, ~150 kbps) while watched, nothing captured or encoded otherwise. `webrtc-rs`, empty ICE server list (direct connections only — this is the case the spikes proved works on a shared classroom LAN; a network that needs TURN falls back to "can't connect," which is surfaced, not silently retried forever).
+Windows Graphics Capture of the primary monitor, downscaled with a box/area filter (not cropped — `windows-capture` always hands over the monitor's real resolution regardless of target size) and encoded with the same Media Foundation H.264 encoder proven in `spikes/native-capture`. Two quality presets, chosen by the session's `quality` column: `thumb` (`320x180`, 5fps, ~150 kbps, the default) and `full` (`1280x720`, 15fps, ~1.5 Mbps, requested on demand for a closer look at one device). Nothing captured or encoded while unwatched.
+
+Switching quality mid-watch rebuilds the capture+encoder pair rather than reconfiguring it live — Media Foundation doesn't support changing a transform's output frame size once streaming has started — but reuses the same peer connection and track, so the viewer never re-negotiates. `webrtc-rs`, empty ICE server list (direct connections only — this is the case the spikes proved works on a shared classroom LAN; a network that needs TURN falls back to "can't connect," which is surfaced, not silently retried forever).

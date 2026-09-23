@@ -52,8 +52,15 @@ header .eyebrow { margin-top: 0; }
 .screen-placeholder video { width: 100%; height: 100%; object-fit: cover; background: #10160f; }
 .thumb-watch { position: absolute; right: 8px; bottom: 8px; padding: 5px 9px; border: 1px solid #cbd7ca; border-radius: 7px; background: white; color: #2d5a3d; font-size: 11px; font-weight: 600; cursor: pointer; }
 .thumb-watch:disabled { opacity: .6; cursor: default; }
-.thumb-stop { position: absolute; right: 8px; bottom: 8px; padding: 5px 9px; border: 0; border-radius: 7px; background: rgba(16,22,15,.65); color: white; font-size: 11px; font-weight: 600; cursor: pointer; }
+.thumb-controls { position: absolute; right: 8px; bottom: 8px; display: flex; gap: 6px; }
+.thumb-quality, .thumb-stop { padding: 5px 9px; border: 0; border-radius: 7px; background: rgba(16,22,15,.65); color: white; font-size: 11px; font-weight: 600; cursor: pointer; }
 .thumb-error { margin: 6px 0 0; font-size: 11px; color: #943c3c; }
+
+.screen-fullview-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: rgba(10,16,11,.75); }
+.screen-fullview { width: min(1100px, 92vw); background: #10160f; border-radius: 14px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.4); }
+.screen-fullview header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; color: white; }
+.screen-fullview header div { display: flex; gap: 8px; }
+.screen-fullview video { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: black; }
 .device-card h3 { margin: 5px 0; font-size: 16px; }
 .device-card p { margin: 0; color: #7b8980; font-size: 12px; }
 .danger { margin-top: 14px; padding: 6px 9px; border: 1px solid #e2caca; border-radius: 7px; color: #943c3c; background: #fffafa; font-size: 11px; }

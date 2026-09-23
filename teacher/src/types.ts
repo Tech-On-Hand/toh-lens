@@ -31,7 +31,7 @@ export interface Device {
 export interface ScreenSessionSummary {
   id: string;
   status: "pending" | "active" | "ended";
-  quality: string;
+  quality: "thumb" | "full";
   offer: RTCSessionDescriptionInit | null;
   answer: RTCSessionDescriptionInit | null;
 }
