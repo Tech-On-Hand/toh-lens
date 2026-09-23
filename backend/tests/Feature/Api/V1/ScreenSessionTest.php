@@ -109,6 +109,27 @@ class ScreenSessionTest extends TestCase
         $again->assertOk()->assertJsonPath('data.status', 'active');
     }
 
+    public function test_sdp_line_terminators_survive_the_round_trip(): void
+    {
+        // RFC 4566 requires CRLF line endings, including after the last line; the
+        // global request-trimming middleware silently stripped a trailing "\r\n"
+        // before this field was excepted, which real browsers reject as invalid.
+        [$school, $classroom] = $this->makeClassroom();
+        $device = $this->makeDevice($school, $classroom);
+        $teacher = $this->makeTeacher($school, $classroom);
+        $offerSdp = "v=0\r\ns=-\r\na=recvonly\r\n";
+        $answerSdp = "v=0\r\ns=-\r\na=sendonly\r\n";
+
+        $id = $this->withHeaders($this->teacherHeaders($teacher))
+            ->postJson($this->watchUrl($device), ['offer' => ['type' => 'offer', 'sdp' => $offerSdp]])
+            ->assertCreated()->assertJsonPath('data.offer.sdp', $offerSdp)
+            ->json('data.id');
+
+        $this->withHeaders($this->deviceHeaders($device))
+            ->patchJson("/api/v1/device/screen-sessions/{$id}", ['answer' => ['type' => 'answer', 'sdp' => $answerSdp]])
+            ->assertOk()->assertJsonPath('data.answer.sdp', $answerSdp);
+    }
+
     public function test_a_device_never_sees_another_devices_session(): void
     {
         [$school, $classroom] = $this->makeClassroom();

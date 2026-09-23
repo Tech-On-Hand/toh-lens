@@ -139,6 +139,17 @@ fn start_capture(track: Arc<TrackLocalStaticSample>) -> Result<Capture, String> 
     ScreenCapturer::start_free_threaded(settings).map_err(|e| e.to_string())
 }
 
+/// `webrtc-rs`'s answer SDP uses bare `\n` and drops the terminator on the last
+/// line; Chrome's parser requires RFC 4566's CRLF throughout, including after
+/// the final line, and rejects the whole description otherwise.
+fn normalize_sdp_line_endings(sdp: &str) -> String {
+    let mut normalized = sdp.replace("\r\n", "\n").replace('\n', "\r\n");
+    if !normalized.ends_with("\r\n") {
+        normalized.push_str("\r\n");
+    }
+    normalized
+}
+
 impl ScreenShare {
     /// Ends the watch, if any: stops capturing and closes the connection. Safe to
     /// call when nothing is being watched.
@@ -207,7 +218,10 @@ impl ScreenShare {
 
         // Idempotent on the backend: if this session was already active (the restart
         // case above), the PATCH is accepted but ignored.
-        let Ok(answer_json) = serde_json::to_value(&answer) else { return };
+        let Ok(mut answer_json) = serde_json::to_value(&answer) else { return };
+        if let Some(sdp) = answer_json.get("sdp").and_then(|v| v.as_str()) {
+            answer_json["sdp"] = serde_json::Value::String(normalize_sdp_line_endings(sdp));
+        }
         let _ = crate::api_client::answer_screen_session(&reqwest::Client::new(), base_url, token, &session.id, &answer_json).await;
 
         let capture = start_capture(track).ok();
@@ -254,5 +268,28 @@ impl ScreenShare {
             self.teardown().await;
             self.begin(&base_url, &token, &session).await;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_sdp_line_endings;
+
+    #[test]
+    fn a_missing_trailing_terminator_is_added() {
+        let sdp = "v=0\r\ns=-\r\na=sendonly";
+        assert_eq!(normalize_sdp_line_endings(sdp), "v=0\r\ns=-\r\na=sendonly\r\n");
+    }
+
+    #[test]
+    fn bare_lf_is_upgraded_to_crlf_throughout() {
+        let sdp = "v=0\ns=-\na=sendonly\n";
+        assert_eq!(normalize_sdp_line_endings(sdp), "v=0\r\ns=-\r\na=sendonly\r\n");
+    }
+
+    #[test]
+    fn already_correct_input_is_left_unchanged() {
+        let sdp = "v=0\r\ns=-\r\n";
+        assert_eq!(normalize_sdp_line_endings(sdp), sdp);
     }
 }

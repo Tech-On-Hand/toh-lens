@@ -24,6 +24,12 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
+        // SDP text is significant down to its line terminators (RFC 4566
+        // requires CRLF, including after the last line) — the default global
+        // trim silently stripped the trailing "\r\n" and produced SDP that
+        // Chrome's strict parser rejected with "Invalid SDP line".
+        $middleware->trimStrings(except: ['offer.sdp', 'answer.sdp']);
+
         $middleware->web(append: [
             HandleAppearance::class,
             HandleInertiaRequests::class,
