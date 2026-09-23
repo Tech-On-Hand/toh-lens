@@ -74,6 +74,7 @@ pub fn run() {
             commands::get_open_session,
             commands::sync_now,
             commands::get_sync_status,
+            commands::get_screen_watch_status,
             commands::seed_demo_config,
             commands::seed_demo_roster,
         ]);
@@ -92,6 +93,7 @@ pub fn run() {
             commands::get_open_session,
             commands::sync_now,
             commands::get_sync_status,
+            commands::get_screen_watch_status,
         ]);
     }
 

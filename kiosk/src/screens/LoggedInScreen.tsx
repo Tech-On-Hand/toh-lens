@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { ScreenWatchIndicator } from "../components/ScreenWatchIndicator";
 import { SyncStatusBadge } from "../components/SyncStatusBadge";
 import { commandErrorMessage, recordLogout } from "../lib/commands";
 import { useIdleTimeout } from "../lib/useIdleTimeout";
@@ -40,6 +41,7 @@ export function LoggedInScreen({ session, onLogout }: LoggedInScreenProps) {
 
   return (
     <div className="screen loggedin-screen">
+      <ScreenWatchIndicator />
       <SyncStatusBadge />
 
       <h1>Welcome, {session.full_name}</h1>

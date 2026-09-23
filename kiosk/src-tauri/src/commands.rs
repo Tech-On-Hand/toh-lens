@@ -208,6 +208,11 @@ pub async fn sync_now(state: State<'_, AppState>) -> Result<SyncResult, String> 
 }
 
 #[tauri::command]
+pub fn get_screen_watch_status(state: State<AppState>) -> Result<bool, String> {
+    Ok(state.screen_share.is_watching())
+}
+
+#[tauri::command]
 pub async fn get_sync_status(state: State<'_, AppState>) -> Result<SyncStatus, String> {
     let base_url = {
         let conn = state.db.lock().unwrap();

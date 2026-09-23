@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NumericKeypad } from "../components/NumericKeypad";
 import { RosterFreshnessNote } from "../components/RosterFreshnessNote";
+import { ScreenWatchIndicator } from "../components/ScreenWatchIndicator";
 import { SyncStatusBadge } from "../components/SyncStatusBadge";
 import { commandErrorMessage, recordLogin } from "../lib/commands";
 import type { LoginSessionRecord } from "../types";
@@ -36,6 +37,7 @@ export function KeypadScreen({ onLogin }: KeypadScreenProps) {
 
   return (
     <div className="screen keypad-screen">
+      <ScreenWatchIndicator />
       <SyncStatusBadge />
 
       <h1>Enter your admission number</h1>

@@ -12,19 +12,19 @@
 
 Chrome/Edge managed extension, native messaging host, current-tab activity, open/close/navigate tab actions, and session-correct attribution.
 
-**Status:** built and tested in software (backend APIs, agent bridge, native host, extension, installer, and a Teacher app Browser panel that shows the active tab and can open, redirect, or close pages). Verified in real headless Chrome 153 and Edge 153 (extension + native host + a stand-in agent); not yet run with the real agent on a school machine, and the Teacher UI is type-checked but has not been looked at in a running window. See `provisioning/browser-integration.md`.
+**Status:** built and verified end to end against the real agent and a real browser (extension + native host + Student Agent + Teacher app, all live) — not just the earlier headless-Chrome/stand-in-agent software tests. Not yet run on a real, hardened school machine (this was a dev PC). See `provisioning/browser-integration.md`.
 
 ## Milestone 3 — Classroom policies
 
 Allow/block rules, focus sessions, offline policy cache, audit records, and reversible browser enforcement. Stronger Windows/network enforcement remains optional and separately reviewed.
 
-**Status:** built and tested in software: backend policy and audit APIs, agent policy sync and offline cache, extension enforcement (verified in real Chrome 153 and Edge 153, including offline enforcement and automatic focus expiry), and a Teacher app panel. Not yet run with the real agent on a school machine, the Teacher UI has not been looked at in a running window, and there is no audit screen yet. See `provisioning/browser-integration.md`.
+**Status:** built and verified end to end against the real agent and a real browser: a focus session started from the Teacher app was enforced live — allowed sites loaded, everything else redirected to the blocked page — and a classroom block rule was enforced the same way. Not yet run on a real, hardened school machine, and there is no audit screen yet (the audit trail is API-only). See `provisioning/browser-integration.md`.
 
 ## Milestone 4 — Screen collaboration
 
 Windows Graphics Capture, adaptive WebRTC thumbnails/full view, teacher broadcast, signaling, TURN deployment, and visible privacy indicators.
 
-**Status:** thumbnail-quality one-viewer-per-device watching is built and type-checked end to end: backend signaling API, the kiosk agent's real capture→encode→WebRTC pipeline (Windows Graphics Capture of the primary monitor, Media Foundation H.264, `webrtc-rs`), and a Teacher app "Watch" button per device rendering the live thumbnail (`RTCPeerConnection` runs directly in the Teacher app's webview, signaling through the same REST endpoints the device polls). Not yet run against a real school machine. Deliberately out of scope for this slice: full-view escalation, teacher-broadcast, TURN (direct connections only — a network that needs a relay surfaces as "can't connect," not a silent retry), and an on-device "you're being watched" indicator for the student.
+**Status:** thumbnail-quality one-viewer-per-device watching is built and verified end to end against a real kiosk, not just type-checked: backend signaling API, the kiosk agent's real capture→encode→WebRTC pipeline (Windows Graphics Capture of the primary monitor, Media Foundation H.264, `webrtc-rs`), a Teacher app "Watch" button per device rendering the live thumbnail (`RTCPeerConnection` runs directly in the Teacher app's webview, signaling through the same REST endpoints the device polls), and an on-device indicator (a persistent red banner, on both the keypad and logged-in screens) so the student can always see when their screen is being watched. Not yet run against a real school machine. Deliberately out of scope for this slice: full-view escalation, teacher-broadcast, and TURN (direct connections only — a network that needs a relay surfaces as "can't connect," not a silent retry).
 
 ## Milestone 5 — Communication
 

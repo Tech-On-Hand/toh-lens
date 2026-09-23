@@ -52,6 +52,10 @@ export function getSyncStatus(): Promise<SyncStatus> {
   return invoke("get_sync_status");
 }
 
+export function getScreenWatchStatus(): Promise<boolean> {
+  return invoke("get_screen_watch_status");
+}
+
 /** Dev-only: exercises the keypad/login flow before a backend exists. */
 export function seedDemoConfig(): Promise<AppConfig> {
   return invoke("seed_demo_config");

@@ -195,6 +195,38 @@ button {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
+/* --- Screen watch indicator --- */
+
+.screen-watch-indicator {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.5rem;
+  background: #c0392b;
+  color: #ffffff;
+}
+
+.screen-watch-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: #ffffff;
+  animation: screen-watch-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes screen-watch-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
 /* --- Sync status badge --- */
 
 .sync-status-badge {
