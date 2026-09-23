@@ -54,6 +54,12 @@ class DeviceEnrollmentTest extends TestCase
 
         $response->assertCreated();
         $response->assertJsonPath('data.device.classroom_id', $classroom->id);
+        // Regression check: `save()` on a freshly-created row doesn't pull the
+        // DB-level default back into the model, so this silently serialized as
+        // null until `deviceConfiguration()` explicitly refreshed the model —
+        // the Rust agent requires it as a non-optional number and fails to parse
+        // the whole response when it's missing.
+        $response->assertJsonPath('data.device.configuration_version', 1);
         $this->assertNotEmpty($response->json('data.token'));
 
         $device = Computer::where('device_uuid', $deviceUuid)->first();

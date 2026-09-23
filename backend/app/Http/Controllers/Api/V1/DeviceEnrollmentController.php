@@ -49,6 +49,10 @@ class DeviceEnrollmentController extends ApiController
                 'last_seen_at' => now(),
                 'presence_status' => 'online',
             ])->save();
+            // `save()` on a new row doesn't pull the DB-level default for
+            // configuration_version back into memory, so this stays null in the
+            // response below (a required field on the agent's side) without this.
+            $device->refresh();
 
             $device->tokens()->delete();
             $token = $device->createToken('student-agent', ['device'])->plainTextToken;
