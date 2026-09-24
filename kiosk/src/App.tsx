@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import "./App.css";
 import { AnnouncementOverlay } from "./components/AnnouncementOverlay";
 import { BroadcastViewer } from "./components/BroadcastViewer";
-import { commandErrorMessage, getConfig, getOpenSession } from "./lib/commands";
+import { commandErrorMessage, getConfig, getOpenSession, refreshRoster, tryAutoEnroll } from "./lib/commands";
 import { installKioskGuards } from "./lib/kioskGuards";
 import { KeypadScreen } from "./screens/KeypadScreen";
 import { LoggedInScreen } from "./screens/LoggedInScreen";
@@ -12,13 +12,25 @@ import type { LoginSessionRecord } from "./types";
 type Screen =
   | { kind: "loading" }
   | { kind: "error"; message: string }
-  | { kind: "setup" }
+  | { kind: "setup"; error?: string | null }
   | { kind: "keypad" }
   | { kind: "loggedin"; session: LoginSessionRecord };
 
 async function determineInitialScreen(): Promise<Screen> {
-  const config = await getConfig();
-  if (!config) return { kind: "setup" };
+  let config = await getConfig();
+  let setupError: string | null = null;
+
+  if (!config) {
+    // A rollout script may have left a provisioning file: enroll from it before
+    // asking anyone to type a server address and a code.
+    try {
+      config = await tryAutoEnroll();
+      if (config) await refreshRoster().catch(() => {});
+    } catch (err) {
+      setupError = commandErrorMessage(err);
+    }
+  }
+  if (!config) return { kind: "setup", error: setupError };
 
   const openSession = await getOpenSession();
   if (openSession) return { kind: "loggedin", session: openSession };
@@ -51,7 +63,7 @@ function App() {
   }
 
   if (screen.kind === "setup") {
-    return <SetupScreen onComplete={() => setScreen({ kind: "keypad" })} />;
+    return <SetupScreen initialError={screen.error} onComplete={() => setScreen({ kind: "keypad" })} />;
   }
 
   // Mounted once here, not inside each screen: a broadcast can be running

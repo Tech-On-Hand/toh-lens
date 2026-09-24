@@ -51,6 +51,10 @@ pub async fn enroll_device(
     enrollment_code: String,
     device_name: String,
 ) -> Result<AppConfig, String> {
+    perform_enrollment(&state, &api_base_url, &enrollment_code, &device_name).await
+}
+
+async fn perform_enrollment(state: &AppState, api_base_url: &str, enrollment_code: &str, device_name: &str) -> Result<AppConfig, String> {
     let api_base_url = api_base_url.trim().to_string();
     let device_uuid = {
         let conn = state.db.lock().unwrap();
@@ -89,6 +93,33 @@ pub async fn enroll_device(
     config_repo::get_config(&conn)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "failed to read back enrolled device configuration".to_string())
+}
+
+/// Enrolls from the provisioning file a rollout script left on this machine (see
+/// `provisioning.rs`). `Ok(None)` when this computer is already enrolled or there is
+/// no file, so it is safe to call on every start.
+#[tauri::command]
+pub async fn try_auto_enroll(state: State<'_, AppState>) -> Result<Option<AppConfig>, String> {
+    let already_enrolled = {
+        let conn = state.db.lock().unwrap();
+        config_repo::get_config(&conn).map_err(|e| e.to_string())?.is_some()
+    };
+    if already_enrolled {
+        return Ok(None);
+    }
+    let Some(file) = crate::provisioning::read()? else { return Ok(None) };
+
+    let name = file.device_name.clone().unwrap_or_else(|| std::env::var("COMPUTERNAME").unwrap_or_else(|_| "Windows PC".into()));
+    match perform_enrollment(&state, &file.api_base_url, &file.enrollment_code, &name).await {
+        Ok(config) => {
+            crate::provisioning::remove();
+            Ok(Some(config))
+        }
+        Err(error) => {
+            log::warn!("provisioning: automatic enrollment failed: {error}");
+            Err(error)
+        }
+    }
 }
 
 #[tauri::command]

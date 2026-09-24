@@ -68,7 +68,12 @@ async fn the_agent_and_backend_agree_end_to_end() {
         &state.http,
         &base,
         &device_token,
-        HeartbeatRequest { hostname: "E2E-PC".into(), operating_system: "Windows x86_64".into(), agent_version: "0.0.0-e2e".into() },
+        HeartbeatRequest {
+            hostname: "E2E-PC".into(),
+            operating_system: "Windows x86_64".into(),
+            agent_version: "0.0.0-e2e".into(),
+            health: crate::models::HeartbeatHealth { unsynced_sessions: 0, screen_capture_supported: true },
+        },
     )
     .await
     .unwrap();

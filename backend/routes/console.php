@@ -2,6 +2,7 @@
 
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
@@ -14,3 +15,6 @@ Schedule::command('device-commands:expire')->everyMinute()->withoutOverlapping()
 Schedule::command('focus-sessions:expire')->everyMinute()->withoutOverlapping();
 Schedule::command('screen-sessions:expire')->everyMinute()->withoutOverlapping();
 Schedule::command('activity:prune')->dailyAt('02:30')->withoutOverlapping();
+
+// Lets `klas:check` tell whether cron is actually running the scheduler.
+Schedule::call(fn () => Cache::put(\App\Console\Commands\CheckReadiness::SCHEDULER_KEY, now()->timestamp, 3600))->everyMinute()->name('klas-scheduler-heartbeat');

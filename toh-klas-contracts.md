@@ -291,3 +291,23 @@ The Teacher app shows both to administrators as "Audit" and "Fleet" buttons. The
 **Health on the heartbeat.** `POST /device/heartbeat` accepts an optional `health` object: `unsynced_sessions` (login sessions the agent has recorded but the server has not confirmed) and `screen_capture_supported` (whether this Windows build can capture the screen at all). It replaces the last one on every heartbeat; an older agent that sends none leaves the last known state alone.
 
 **Issues** are only raised for something the device reported or the server can see, so they can be trusted: `never_seen` (enrolled, never connected), `offline` (not seen for 24 hours; a PC switched off overnight or at the weekend is not flagged), `outdated_agent` (older than the newest agent in that school), and, only while the device is online, `screen_capture` (Windows cannot capture the screen, so screen watch and broadcast will not work) and `sync_backlog` (5 or more sessions waiting to sync). Whether the browser extension is connected is deliberately not an issue: an idle PC with no browser open looks identical to a broken one.
+
+
+# Pilot rollout tooling
+
+The step-by-step is `provisioning/pilot-rollout.md`. What the tooling is:
+
+**Server (artisan).**
+- `php artisan klas:bootstrap "<organization>" "<school>" <admin_email> [--admin-name=] [--classroom=...]` creates the organization, school, classrooms and a school administrator (a new account gets a random password, printed once). Idempotent.
+- `php artisan klas:enrollment-codes <classroom_id> [count] --as=<admin_email> [--minutes=1440] [--json]` issues up to 200 one-time codes at once, valid up to 7 days (the web admin's are 30 minutes). `--as` must be an administrator of that classroom's school; it is recorded as the issuer.
+- `php artisan klas:check` reports PASS / WARN / FAIL for the environment (key, production mode, debug, https and a non-localhost `APP_URL`), database and pending migrations, Redis, queue, Reverb, mail, and whether the **scheduler** is really running (a heartbeat the scheduler stamps every minute), and exits non-zero on a FAIL.
+
+**Unattended enrollment (kiosk).** If the agent starts with no configuration and finds `%ProgramData%\TOH Klas\provisioning.json`, it enrolls itself and deletes the file:
+
+```json
+{ "api_base_url": "https://klas.school.example", "enrollment_code": "AB12-CD34", "device_name": "Lab PC 01" }
+```
+
+`device_name` is optional (the computer's name is used). A file that cannot work, or an enrollment that fails, falls back to the normal setup screen with the reason shown.
+
+**Windows scripts (`provisioning/`).** `provision-student-pc.ps1` installs the kiosk MSI silently, writes that file, installs the browser integration and optionally applies the hardening (`-DryRun` prints everything first). `verify-student-pc.ps1` is read-only and checks Windows screen-capture support, WebView2, the kiosk, the native host and browser policies, the kiosk log, the server, the clock and UDP reachability of Google's STUN server, exiting non-zero on a FAIL.

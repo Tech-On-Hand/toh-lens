@@ -9,6 +9,7 @@ mod mf;
 mod models;
 mod outbox;
 mod policy_sync;
+mod provisioning;
 mod screen_broadcast;
 mod screen_share;
 mod shell_handoff;
@@ -82,6 +83,7 @@ pub fn run() {
             commands::get_config,
             commands::save_config,
             commands::enroll_device,
+            commands::try_auto_enroll,
             commands::get_roster_cache_status,
             commands::refresh_roster,
             commands::validate_admission_number,
@@ -117,6 +119,7 @@ pub fn run() {
             commands::get_config,
             commands::save_config,
             commands::enroll_device,
+            commands::try_auto_enroll,
             commands::get_roster_cache_status,
             commands::refresh_roster,
             commands::validate_admission_number,

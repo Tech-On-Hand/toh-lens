@@ -46,6 +46,10 @@ Not part of this item: **restricting** which apps can run. Tracking does not sto
 
 **Status:** built and backend-tested, not yet seen on screen. School administrators get an "Audit" panel in the Teacher app (the audit trail was API-only until now: filter by school or classroom and by action, plain-language labels, older entries on demand) and a "Fleet" panel listing every device in the school with what needs attention: never connected, missing for over a day, running an older agent than the rest of the school, unable to capture the screen, or with a sync backlog. The agent now reports its own health on each heartbeat. See `toh-klas-contracts.md`.
 
+### Pilot rollout tooling (built)
+
+**Status:** built, with the server commands tested and the Windows scripts parse-checked, dry-run and (for the verify script) run on a dev PC; **not yet used to roll out a real school**. Server: `klas:bootstrap` (first school and administrator), `klas:enrollment-codes` (bulk one-time codes) and `klas:check` (readiness, including whether the scheduler is running). Kiosk: unattended enrollment from a provisioning file. Windows: `provision-student-pc.ps1` (one command per computer) and `verify-student-pc.ps1` (read-only health check). All tied together in `provisioning/pilot-rollout.md`, which includes a go/no-go checklist for real hardware, the disclosure checklist and rollback steps. The kiosk's automatic enrollment itself has unit tests for the file parsing but has not been run end to end against a live server.
+
 ### Still to do in this milestone
 
-Scheduling, silent installers, managed extension deployment, signed updates, and pilot-to-school rollout tooling. The last four need decisions first (a code-signing certificate, where updates are hosted, how devices are managed).
+Scheduling is moved to after the MVP. Silent installers (the MSI installs silently, but nothing is signed), managed extension deployment, and signed updates need decisions first (a code-signing certificate, where updates are hosted, how devices are managed).

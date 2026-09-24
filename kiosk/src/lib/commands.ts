@@ -23,6 +23,11 @@ export function enrollDevice(apiBaseUrl: string, enrollmentCode: string, deviceN
   return invoke("enroll_device", { apiBaseUrl, enrollmentCode, deviceName });
 }
 
+/** Enrolls from the provisioning file a rollout script left on this PC, if there is one. */
+export function tryAutoEnroll(): Promise<AppConfig | null> {
+  return invoke("try_auto_enroll");
+}
+
 export function getRosterCacheStatus(): Promise<RosterStatus> {
   return invoke("get_roster_cache_status");
 }

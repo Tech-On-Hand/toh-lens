@@ -3,14 +3,16 @@ import { commandErrorMessage, enrollDevice, refreshRoster, seedDemoConfig, seedD
 
 interface SetupScreenProps {
   onComplete: () => void;
+  // Why automatic enrollment from a provisioning file failed, if it was tried.
+  initialError?: string | null;
 }
 
-export function SetupScreen({ onComplete }: SetupScreenProps) {
+export function SetupScreen({ onComplete, initialError }: SetupScreenProps) {
   const [apiBaseUrl, setApiBaseUrl] = useState("http://127.0.0.1:8000");
   const [enrollmentCode, setEnrollmentCode] = useState("");
   const [deviceName, setDeviceName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError ?? null);
 
   const handleSave = async (event: React.FormEvent) => {
     event.preventDefault();
