@@ -1,3 +1,4 @@
+pub mod app_usage_repo;
 pub mod browser_repo;
 pub mod config_repo;
 pub mod outbox_repo;

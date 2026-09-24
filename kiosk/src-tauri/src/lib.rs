@@ -1,4 +1,5 @@
 mod api_client;
+mod app_activity;
 mod browser_bridge;
 mod commands;
 mod credential_store;
@@ -58,6 +59,7 @@ pub fn run() {
                     bridge_state.screen_share.tick(&bridge_state).await;
                     bridge_state.screen_broadcast_source.tick(&bridge_state).await;
                     bridge_state.outbox.flush(&bridge_state).await;
+                    app_activity::tick(&bridge_state, tick_number).await;
                     tick_number += 1;
                 }
             });

@@ -77,9 +77,27 @@ CREATE TABLE outbox (
 CREATE INDEX idx_outbox_kind_key ON outbox (kind, key);
 "#;
 
+/// Which desktop application the signed-in student had in front, as intervals
+/// waiting to be uploaded (process name only, never a window title).
+/// `synced_ended_at` is the end the server last confirmed, so an interval that
+/// was still open when it was sent is sent again once it has grown.
+const MIGRATION_V5: &str = r#"
+CREATE TABLE app_usage (
+    uuid            TEXT PRIMARY KEY,
+    session_uuid    TEXT NOT NULL,
+    process         TEXT NOT NULL,
+    is_idle         INTEGER NOT NULL,
+    started_at      TEXT NOT NULL,
+    ended_at        TEXT NOT NULL,
+    synced_ended_at TEXT
+);
+
+CREATE INDEX idx_app_usage_session ON app_usage (session_uuid);
+"#;
+
 /// Step-wise migrations keyed by `PRAGMA user_version`. Add new steps by
 /// appending to this slice — never edit a step that has already shipped.
-const MIGRATIONS: &[&str] = &[MIGRATION_V1, MIGRATION_V2, MIGRATION_V3, MIGRATION_V4];
+const MIGRATIONS: &[&str] = &[MIGRATION_V1, MIGRATION_V2, MIGRATION_V3, MIGRATION_V4, MIGRATION_V5];
 
 pub fn run_migrations(conn: &Connection) -> rusqlite::Result<()> {
     let current_version: i64 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;

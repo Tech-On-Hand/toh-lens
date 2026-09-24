@@ -118,3 +118,14 @@ header .eyebrow { margin-top: 0; }
 .chat-line.mine .chat-text { background: #2f6f4e; color: white; }
 .chat-line.theirs .chat-text { background: #eef2ee; color: #1f2a22; }
 .chat-line small { margin-top: 2px; font-size: 10px; color: #7b8980; }
+
+.panel.report { width: min(920px, 96vw); }
+.report-range { flex-wrap: wrap; gap: 8px; align-items: center; }
+.report-range input { padding: 5px 8px; border: 1px solid #dce4da; border-radius: 8px; }
+.report-apps { margin: 4px 0 12px; font-size: 13px; }
+.report-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 8px 0; }
+.report-table th { text-align: left; padding: 8px 10px; color: #7b8980; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid #dce4da; }
+.report-table td { padding: 10px; vertical-align: top; border-bottom: 1px solid #eef2ee; }
+.report-table small { display: block; color: #7b8980; font-size: 11px; }
+.report-table div small { display: inline; margin-left: 4px; }
+.report-table small.blocked { color: #c2410c; font-weight: 600; margin-top: 2px; }

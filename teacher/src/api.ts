@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  ActivityReport,
   BrowserTab,
   Classroom,
   ChatMessage,
@@ -58,3 +59,5 @@ export const listChatMessages = (classroomId: number, deviceId: number) =>
   invoke<ChatThread>("list_chat_messages", { classroomId, deviceId });
 export const sendChatMessage = (classroomId: number, deviceId: number, messageId: string, body: string) =>
   invoke<ChatMessage>("send_chat_message", { classroomId, deviceId, messageId, body });
+export const getActivityReport = (classroomId: number, from: string, to: string) =>
+  invoke<ActivityReport>("get_activity_report", { classroomId, from, to });

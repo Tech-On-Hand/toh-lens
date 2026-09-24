@@ -108,3 +108,22 @@ export interface ChatThread {
   session: { uuid: string; student_name: string | null } | null;
   messages: ChatMessage[];
 }
+
+export interface ActivityReport {
+  from: string;
+  to: string;
+  sessions: {
+    session_uuid: string;
+    student: { id: number; name: string } | null;
+    device: string | null;
+    login_time: string;
+    logout_time: string | null;
+    signed_in_minutes: number;
+    active_minutes: number;
+    idle_minutes: number;
+    apps: { process: string; name: string; minutes: number }[];
+    sites: { domain: string; visits: number }[];
+    blocked_attempts: number;
+  }[];
+  classroom_apps: { process: string; name: string; minutes: number }[];
+}

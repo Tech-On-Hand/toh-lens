@@ -13,3 +13,4 @@ Schedule::command('device-commands:expire')->everyMinute()->withoutOverlapping()
 
 Schedule::command('focus-sessions:expire')->everyMinute()->withoutOverlapping();
 Schedule::command('screen-sessions:expire')->everyMinute()->withoutOverlapping();
+Schedule::command('activity:prune')->dailyAt('02:30')->withoutOverlapping();

@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\Admin\DeviceController as AdminDeviceController;
 use App\Http\Controllers\Api\V1\Admin\EnrollmentCodeController;
 use App\Http\Controllers\Api\V1\Admin\InvitationController;
 use App\Http\Controllers\Api\V1\AuthController as V1AuthController;
+use App\Http\Controllers\Api\V1\DeviceAppActivityController;
 use App\Http\Controllers\Api\V1\DeviceBroadcastController;
 use App\Http\Controllers\Api\V1\DeviceBrowserController;
 use App\Http\Controllers\Api\V1\DeviceCommandController;
@@ -25,6 +26,7 @@ use App\Http\Controllers\Api\V1\TeacherClassroomController;
 use App\Http\Controllers\Api\V1\TeacherChatController;
 use App\Http\Controllers\Api\V1\TeacherCommandController;
 use App\Http\Controllers\Api\V1\TeacherCommunicationController;
+use App\Http\Controllers\Api\V1\TeacherReportController;
 use App\Http\Controllers\Api\V1\TeacherScreenSessionController;
 use App\Http\Controllers\Api\V1\TeacherPolicyController;
 use App\Http\Controllers\Api\V1\DevicePolicyController;
@@ -66,6 +68,7 @@ Route::prefix('v1')->group(function () {
         Route::get('help-requests/current', [DeviceCommunicationController::class, 'currentHelpRequest']);
         Route::post('help-requests', [DeviceCommunicationController::class, 'requestHelp']);
         Route::post('help-requests/{uuid}/cancel', [DeviceCommunicationController::class, 'cancelHelpRequest']);
+        Route::post('app-activity', [DeviceAppActivityController::class, 'store']);
         Route::get('messages', [DeviceChatController::class, 'index']);
         Route::post('messages', [DeviceChatController::class, 'store']);
         Route::post('messages/read', [DeviceChatController::class, 'markRead']);
@@ -88,6 +91,8 @@ Route::prefix('v1')->group(function () {
 
         Route::get('teacher/classrooms/{classroom}/devices/{device}/messages', [TeacherChatController::class, 'index']);
         Route::post('teacher/classrooms/{classroom}/devices/{device}/messages', [TeacherChatController::class, 'store'])->middleware('throttle:120,1');
+
+        Route::get('teacher/classrooms/{classroom}/reports/activity', [TeacherReportController::class, 'activity']);
 
         Route::get('teacher/classrooms/{classroom}/announcements',[TeacherCommunicationController::class, 'announcements']);
         Route::post('teacher/classrooms/{classroom}/announcements', [TeacherCommunicationController::class, 'sendAnnouncement'])->middleware('throttle:30,1');

@@ -255,3 +255,25 @@ Everything a student does in this milestone is written to a durable on-disk queu
 **Delivery rules.** Order is kept: delivery stops at the first entry that cannot be sent yet. Network failure, `5xx`, `408`, `429` and `SESSION_UNKNOWN` are retried. Any other refusal (`4xx`) means the server will never accept it, so the entry is dropped and a warning logged. A raised hand still unsent after 10 minutes is dropped (it is no longer a live request for help); chat messages never expire.
 
 **What the student sees.** Messages not yet delivered show as "Not sent yet, retrying…" in the chat; a hand not yet delivered shows "Will send when you're back online"; an announcement the student dismissed offline stays dismissed and does not reappear when the connection returns. Announcements themselves, and anything from the teacher, still need a connection to arrive.
+
+
+# Milestone 6 contracts — activity and reporting
+
+## Desktop application activity
+
+While a student is signed in, the Student Agent samples the **process name** of the foreground window (for example `WINWORD.EXE`) once per 3-second tick. **Window titles are never read or stored**: they carry document names and other personal content. Time with no keyboard or mouse input for 60 seconds is recorded as **idle**, kept separate from the application that happened to be in front. The kiosk's own windows are not recorded, and nothing is sampled while nobody is signed in.
+
+Consecutive samples of the same application in the same state are merged into one interval. Intervals wait in the kiosk's SQLite database (`app_usage`) and are uploaded about every 30 seconds; one still open when it was uploaded is sent again once it has grown (the server keeps the later end, never an earlier one). Delivered intervals are pruned locally after 10 minutes and anything undelivered after 2 days.
+
+| Method | Path | Principal | Purpose |
+|---|---|---|---|
+| POST | `/api/v1/device/app-activity` | Active device | Upload intervals: `{intervals: [{uuid, session_uuid, process, is_idle, started_at, ended_at}]}` (up to 200). Replies `{accepted: [uuid]}`; an interval whose login session has not reached the server yet is left out so the agent retries it after the session syncs |
+| GET | `/api/v1/teacher/classrooms/{c}/reports/activity?from=&to=` | Teacher (viewer+) | The activity report for `from`..`to` (`Y-m-d`, server timezone, default today, at most 31 days: `422 RANGE_TOO_LONG`) |
+
+## Activity report
+
+Per student login session that began in the range: `student`, `device`, `login_time`, `logout_time`, `signed_in_minutes`, `active_minutes`, `idle_minutes`, `apps` (top 5 by active minutes, each `{process, name, minutes}`; `name` is a friendly name such as Word or Chrome when known, otherwise the process name), `sites` (top 5 domains by number of navigations) and `blocked_attempts`. The reply also carries `classroom_apps`, the classroom's ten most used applications across all sessions in the range. Applications under 30 seconds are left out, and idle time is never credited to an application. The Teacher app shows it in a "Reports" panel with Today / Yesterday / Last 7 days presets and custom dates.
+
+## Retention
+
+Browsing history and application activity older than `TOH_ACTIVITY_RETENTION_DAYS` (default 90, `config/toh.php`) are deleted by `php artisan activity:prune`, scheduled daily at 02:30 (`--days=` overrides it once). Schools and parents should be told what is collected and for how long, as with browser URLs.
