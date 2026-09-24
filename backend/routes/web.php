@@ -14,7 +14,7 @@ Route::inertia('/', 'welcome')->name('home');
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
 
-    Route::prefix('admin')->name('admin.')->group(function () {
+    Route::prefix('admin')->name('admin.')->middleware('admin.access')->group(function () {
         Route::resource('schools', SchoolController::class)->only(['index', 'store', 'destroy']);
         Route::resource('classes', SchoolClassController::class)->only(['index', 'store', 'destroy']);
         Route::resource('students', StudentController::class)->only(['index', 'store', 'update', 'destroy']);

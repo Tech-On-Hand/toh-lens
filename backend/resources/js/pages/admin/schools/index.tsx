@@ -9,9 +9,9 @@ import { Label } from '@/components/ui/label';
 import { index as classesIndex } from '@/routes/admin/classes';
 import { index as computersIndex } from '@/routes/admin/computers';
 import { index as studentsIndex } from '@/routes/admin/students';
-import type { School } from '@/types';
+import type { OrganizationOption, School } from '@/types';
 
-export default function SchoolsIndex({ schools }: { schools: School[] }) {
+export default function SchoolsIndex({ schools, organizations }: { schools: School[]; organizations: OrganizationOption[] }) {
     return (
         <>
             <Head title="Schools" />
@@ -24,18 +24,45 @@ export default function SchoolsIndex({ schools }: { schools: School[] }) {
                         <CardTitle>Add a school</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <Form {...SchoolController.store.form()} resetOnSuccess className="flex items-end gap-3">
-                            {({ processing, errors }) => (
-                                <>
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="name">Name</Label>
-                                        <Input id="name" name="name" placeholder="Demo Primary School" required />
-                                        <InputError message={errors.name} />
-                                    </div>
-                                    <Button disabled={processing}>Add school</Button>
-                                </>
-                            )}
-                        </Form>
+                        {organizations.length === 0 ? (
+                            <p className="text-muted-foreground text-sm">
+                                You don&rsquo;t administer an organization, so you can&rsquo;t create a new school here. Ask an organization
+                                administrator, or run <code>php artisan klas:bootstrap</code>.
+                            </p>
+                        ) : (
+                            <Form {...SchoolController.store.form()} resetOnSuccess className="flex items-end gap-3">
+                                {({ processing, errors }) => (
+                                    <>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="organization_id">Organization</Label>
+                                            <select
+                                                id="organization_id"
+                                                name="organization_id"
+                                                required
+                                                defaultValue=""
+                                                className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+                                            >
+                                                <option value="" disabled>
+                                                    Choose an organization
+                                                </option>
+                                                {organizations.map((organization) => (
+                                                    <option key={organization.id} value={organization.id}>
+                                                        {organization.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <InputError message={errors.organization_id} />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="name">Name</Label>
+                                            <Input id="name" name="name" placeholder="Demo Primary School" required />
+                                            <InputError message={errors.name} />
+                                        </div>
+                                        <Button disabled={processing}>Add school</Button>
+                                    </>
+                                )}
+                            </Form>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -79,22 +106,30 @@ export default function SchoolsIndex({ schools }: { schools: School[] }) {
                                         </Link>
                                     </td>
                                     <td className="px-4 py-2 text-right">
-                                        <Form {...SchoolController.destroy.form(school.id)}>
-                                            {({ processing }) => (
-                                                <Button
-                                                    variant="destructive"
-                                                    size="sm"
-                                                    disabled={processing}
-                                                    onClick={(e) => {
-                                                        if (!confirm(`Delete "${school.name}"? This also deletes its classes, students, computers, and sessions.`)) {
-                                                            e.preventDefault();
-                                                        }
-                                                    }}
-                                                >
-                                                    Delete
-                                                </Button>
-                                            )}
-                                        </Form>
+                                        {school.can_delete ? (
+                                            <Form {...SchoolController.destroy.form(school.id)}>
+                                                {({ processing }) => (
+                                                    <Button
+                                                        variant="destructive"
+                                                        size="sm"
+                                                        disabled={processing}
+                                                        onClick={(e) => {
+                                                            if (
+                                                                !confirm(
+                                                                    `Delete "${school.name}"? This also deletes its classes, students, computers, and sessions.`,
+                                                                )
+                                                            ) {
+                                                                e.preventDefault();
+                                                            }
+                                                        }}
+                                                    >
+                                                        Delete
+                                                    </Button>
+                                                )}
+                                            </Form>
+                                        ) : (
+                                            <span className="text-muted-foreground text-xs">Organization admin only</span>
+                                        )}
                                     </td>
                                 </tr>
                             ))}

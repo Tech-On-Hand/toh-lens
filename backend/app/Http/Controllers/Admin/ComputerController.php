@@ -6,16 +6,23 @@ use App\Http\Controllers\Controller;
 use App\Models\Computer;
 use App\Models\School;
 use App\Models\SchoolClass;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ComputerController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        /** @var User $user */
+        $user = $request->user();
+        $schoolIds = $user->administeredSchoolIds();
+
         $computers = Computer::query()
+            ->whereIn('school_id', $schoolIds)
             ->with([
                 'school:id,name',
                 'schoolClass:id,name',
@@ -42,13 +49,17 @@ class ComputerController extends Controller
                 'last_session_synced_at' => $computer->login_sessions_max_created_at,
                 'token_last_used_at' => $computer->tokens->first()?->last_used_at,
             ]),
-            'schools' => School::query()->orderBy('name')->get(['id', 'name']),
-            'classes' => SchoolClass::query()->orderBy('name')->get(['id', 'name', 'school_id']),
+            'schools' => School::query()->whereIn('id', $schoolIds)->orderBy('name')->get(['id', 'name']),
+            'classes' => SchoolClass::query()->whereIn('school_id', $schoolIds)->orderBy('name')->get(['id', 'name', 'school_id']),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
+        /** @var User $user */
+        $user = $request->user();
+        abort_unless($user->isSchoolAdministrator((int) $request->input('school_id')), 403);
+
         $data = $this->validated($request);
 
         Computer::create($data);
@@ -60,6 +71,13 @@ class ComputerController extends Controller
 
     public function update(Request $request, Computer $computer): RedirectResponse
     {
+        /** @var User $user */
+        $user = $request->user();
+        abort_unless($user->isSchoolAdministrator($computer->school_id), 403);
+        // school_id isn't editable from this form; a mismatch would mean
+        // moving the computer to a school this admin doesn't run.
+        abort_unless((int) $request->input('school_id') === $computer->school_id, 403);
+
         $data = $this->validated($request);
 
         $computer->update($data);
@@ -69,8 +87,12 @@ class ComputerController extends Controller
         return back();
     }
 
-    public function destroy(Computer $computer): RedirectResponse
+    public function destroy(Request $request, Computer $computer): RedirectResponse
     {
+        /** @var User $user */
+        $user = $request->user();
+        abort_unless($user->isSchoolAdministrator($computer->school_id), 403);
+
         $computer->delete();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Computer deleted.']);
@@ -83,8 +105,12 @@ class ComputerController extends Controller
      * issue a fresh one. The plaintext value is only ever available in this
      * one flashed response — it is not retrievable again afterwards.
      */
-    public function issueToken(Computer $computer): RedirectResponse
+    public function issueToken(Request $request, Computer $computer): RedirectResponse
     {
+        /** @var User $user */
+        $user = $request->user();
+        abort_unless($user->isSchoolAdministrator($computer->school_id), 403);
+
         $computer->tokens()->delete();
 
         $token = $computer->createToken('kiosk-token')->plainTextToken;
@@ -102,7 +128,10 @@ class ComputerController extends Controller
     {
         return $request->validate([
             'school_id' => ['required', 'exists:schools,id'],
-            'class_id' => ['nullable', 'exists:classes,id'],
+            'class_id' => [
+                'nullable',
+                Rule::exists('classes', 'id')->where('school_id', $request->input('school_id')),
+            ],
             'name' => ['required', 'string', 'max:255'],
             'role' => ['required', 'in:teacher,student'],
         ]);

@@ -4,17 +4,16 @@ namespace Tests\Feature\Admin;
 
 use App\Models\Computer;
 use App\Models\LoginSession;
-use App\Models\School;
 use App\Models\SchoolClass;
 use App\Models\Student;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Tests\Concerns\BuildsAdminFixtures;
 use Tests\TestCase;
 
 class LiveSessionsControllerTest extends TestCase
 {
-    use RefreshDatabase;
+    use BuildsAdminFixtures, RefreshDatabase;
 
     public function test_guests_cannot_access_live_sessions(): void
     {
@@ -23,8 +22,8 @@ class LiveSessionsControllerTest extends TestCase
 
     public function test_only_open_sessions_are_shown(): void
     {
-        $user = User::factory()->create();
-        $school = School::create(['name' => 'Demo Primary School']);
+        $school = $this->makeSchool();
+        $admin = $this->makeSchoolAdmin($school);
         $class = SchoolClass::create(['school_id' => $school->id, 'name' => 'Grade 4 Blue']);
         $computer = Computer::create(['school_id' => $school->id, 'name' => 'Lab PC 1', 'role' => 'student']);
         $student = Student::create(['school_id' => $school->id, 'class_id' => $class->id, 'admission_number' => '1001', 'full_name' => 'Amara Otieno']);
@@ -49,7 +48,7 @@ class LiveSessionsControllerTest extends TestCase
             'logout_time' => now()->subMinutes(45),
         ]);
 
-        $response = $this->actingAs($user)->get(route('admin.live.index'))->assertOk();
+        $response = $this->actingAs($admin)->get(route('admin.live.index'))->assertOk();
         $sessions = $response->inertiaProps('sessions');
 
         $this->assertCount(1, $sessions);
@@ -59,11 +58,12 @@ class LiveSessionsControllerTest extends TestCase
         $this->assertGreaterThanOrEqual(14, $sessions[0]['minutes_logged_in']);
     }
 
-    public function test_can_filter_by_school(): void
+    public function test_can_filter_by_an_own_school(): void
     {
-        $user = User::factory()->create();
-        $schoolA = School::create(['name' => 'School A']);
-        $schoolB = School::create(['name' => 'School B']);
+        $schoolA = $this->makeSchool(null, 'School A');
+        $schoolB = $this->makeSchool(null, 'School B');
+        $admin = $this->makeSchoolAdmin($schoolA);
+        $schoolB->users()->attach($admin, ['role' => 'administrator']);
         $computerA = Computer::create(['school_id' => $schoolA->id, 'name' => 'PC A1', 'role' => 'student']);
         $computerB = Computer::create(['school_id' => $schoolB->id, 'name' => 'PC B1', 'role' => 'student']);
 
@@ -82,12 +82,41 @@ class LiveSessionsControllerTest extends TestCase
             'login_time' => now(),
         ]);
 
-        $response = $this->actingAs($user)
+        $response = $this->actingAs($admin)
             ->get(route('admin.live.index', ['school_id' => $schoolA->id]))
             ->assertOk();
 
         $sessions = $response->inertiaProps('sessions');
         $this->assertCount(1, $sessions);
         $this->assertSame('1001', $sessions[0]['admission_number']);
+    }
+
+    public function test_the_index_only_shows_sessions_at_schools_the_administrator_runs(): void
+    {
+        $mine = $this->makeSchool(null, 'My School');
+        $theirs = $this->makeSchool(null, 'Their School');
+        $admin = $this->makeSchoolAdmin($mine);
+        $computerA = Computer::create(['school_id' => $mine->id, 'name' => 'PC A1', 'role' => 'student']);
+        $computerB = Computer::create(['school_id' => $theirs->id, 'name' => 'PC B1', 'role' => 'student']);
+
+        LoginSession::create(['uuid' => (string) Str::uuid(), 'school_id' => $mine->id, 'computer_id' => $computerA->id, 'admission_number' => '1001', 'login_time' => now()]);
+        LoginSession::create(['uuid' => (string) Str::uuid(), 'school_id' => $theirs->id, 'computer_id' => $computerB->id, 'admission_number' => '2001', 'login_time' => now()]);
+
+        $response = $this->actingAs($admin)->get(route('admin.live.index'))->assertOk();
+
+        $sessions = $response->inertiaProps('sessions');
+        $this->assertCount(1, $sessions);
+        $this->assertSame('1001', $sessions[0]['admission_number']);
+    }
+
+    public function test_filtering_by_a_school_the_administrator_does_not_run_is_refused(): void
+    {
+        $mine = $this->makeSchool(null, 'My School');
+        $theirs = $this->makeSchool(null, 'Their School');
+        $admin = $this->makeSchoolAdmin($mine);
+
+        $this->actingAs($admin)
+            ->get(route('admin.live.index', ['school_id' => $theirs->id]))
+            ->assertForbidden();
     }
 }

@@ -3,6 +3,7 @@
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\EnsureDeviceActive;
+use App\Http\Middleware\EnsureIsAdministrator;
 use App\Http\Middleware\EnsureTeacherToken;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -39,6 +40,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'device.active' => EnsureDeviceActive::class,
             'teacher.token' => EnsureTeacherToken::class,
+            'admin.access' => EnsureIsAdministrator::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

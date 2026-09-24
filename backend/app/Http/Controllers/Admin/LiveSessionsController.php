@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\LoginSession;
 use App\Models\School;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -12,18 +13,24 @@ use Inertia\Response;
 class LiveSessionsController extends Controller
 {
     /**
-     * Every currently-open kiosk session (no logout_time yet), across all
-     * schools/computers. There was previously no way to see "who's logged
-     * in right now" anywhere — this is derived from existing data (an open
+     * Every currently-open kiosk session (no logout_time yet) in a school
+     * this admin runs. There was previously no way to see "who's logged in
+     * right now" anywhere — this is derived from existing data (an open
      * session is just one with a null logout_time), just not surfaced
      * until now.
      */
     public function index(Request $request): Response
     {
+        /** @var User $user */
+        $user = $request->user();
+        $schoolIds = $user->administeredSchoolIds();
+
         $schoolId = $request->integer('school_id') ?: null;
+        abort_if($schoolId && ! $schoolIds->contains($schoolId), 403);
 
         $sessions = LoginSession::query()
             ->whereNull('logout_time')
+            ->whereIn('school_id', $schoolIds)
             ->when($schoolId, fn ($query) => $query->where('school_id', $schoolId))
             ->with([
                 'school:id,name',
@@ -46,7 +53,7 @@ class LiveSessionsController extends Controller
 
         return Inertia::render('admin/live/index', [
             'sessions' => $sessions,
-            'schools' => School::query()->orderBy('name')->get(['id', 'name']),
+            'schools' => School::query()->whereIn('id', $schoolIds)->orderBy('name')->get(['id', 'name']),
             'filters' => ['school_id' => $schoolId],
         ]);
     }

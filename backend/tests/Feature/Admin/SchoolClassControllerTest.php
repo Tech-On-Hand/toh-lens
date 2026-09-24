@@ -2,26 +2,25 @@
 
 namespace Tests\Feature\Admin;
 
-use App\Models\School;
 use App\Models\SchoolClass;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\BuildsAdminFixtures;
 use Tests\TestCase;
 
 class SchoolClassControllerTest extends TestCase
 {
-    use RefreshDatabase;
+    use BuildsAdminFixtures, RefreshDatabase;
 
-    public function test_an_authenticated_user_can_view_and_create_classes(): void
+    public function test_a_school_administrator_can_view_and_create_classes_in_their_school(): void
     {
-        $user = User::factory()->create();
-        $school = School::create(['name' => 'Demo Primary School']);
+        $school = $this->makeSchool();
+        $admin = $this->makeSchoolAdmin($school);
 
-        $this->actingAs($user)
+        $this->actingAs($admin)
             ->get(route('admin.classes.index'))
             ->assertOk();
 
-        $this->actingAs($user)
+        $this->actingAs($admin)
             ->post(route('admin.classes.store'), [
                 'school_id' => $school->id,
                 'name' => 'Grade 4 Blue',
@@ -33,23 +32,56 @@ class SchoolClassControllerTest extends TestCase
 
     public function test_a_class_requires_a_valid_school(): void
     {
-        $user = User::factory()->create();
+        $school = $this->makeSchool();
+        $admin = $this->makeSchoolAdmin($school);
 
-        $this->actingAs($user)
+        $this->actingAs($admin)
             ->post(route('admin.classes.store'), ['school_id' => 999, 'name' => 'Grade 4 Blue'])
             ->assertSessionHasErrors('school_id');
     }
 
-    public function test_an_authenticated_user_can_delete_a_class(): void
+    public function test_an_administrator_cannot_create_a_class_in_a_school_they_do_not_run(): void
     {
-        $user = User::factory()->create();
-        $school = School::create(['name' => 'Demo Primary School']);
-        $class = SchoolClass::create(['school_id' => $school->id, 'name' => 'Grade 4 Blue']);
+        $mine = $this->makeSchool(null, 'My School');
+        $theirs = $this->makeSchool(null, 'Their School');
+        $admin = $this->makeSchoolAdmin($mine);
 
-        $this->actingAs($user)
-            ->delete(route('admin.classes.destroy', $class))
+        $this->actingAs($admin)
+            ->post(route('admin.classes.store'), ['school_id' => $theirs->id, 'name' => 'Grade 4 Blue'])
+            ->assertForbidden();
+
+        $this->assertDatabaseMissing('classes', ['school_id' => $theirs->id]);
+    }
+
+    public function test_the_index_only_lists_classes_and_schools_the_administrator_runs(): void
+    {
+        $mine = $this->makeSchool(null, 'My School');
+        $theirs = $this->makeSchool(null, 'Their School');
+        SchoolClass::create(['school_id' => $mine->id, 'name' => 'Mine']);
+        SchoolClass::create(['school_id' => $theirs->id, 'name' => 'Theirs']);
+        $admin = $this->makeSchoolAdmin($mine);
+
+        $response = $this->actingAs($admin)->get(route('admin.classes.index'))->assertOk();
+
+        $this->assertSame(['Mine'], array_column($response->inertiaProps('classes'), 'name'));
+        $this->assertSame(['My School'], array_column($response->inertiaProps('schools'), 'name'));
+    }
+
+    public function test_an_administrator_can_delete_a_class_in_their_school_but_not_another(): void
+    {
+        $mine = $this->makeSchool(null, 'My School');
+        $theirs = $this->makeSchool(null, 'Their School');
+        $myClass = SchoolClass::create(['school_id' => $mine->id, 'name' => 'Grade 4 Blue']);
+        $theirClass = SchoolClass::create(['school_id' => $theirs->id, 'name' => 'Grade 5 Green']);
+        $admin = $this->makeSchoolAdmin($mine);
+
+        $this->actingAs($admin)->delete(route('admin.classes.destroy', $theirClass))->assertForbidden();
+        $this->assertDatabaseHas('classes', ['id' => $theirClass->id]);
+
+        $this->actingAs($admin)
+            ->delete(route('admin.classes.destroy', $myClass))
             ->assertRedirect();
 
-        $this->assertDatabaseMissing('classes', ['id' => $class->id]);
+        $this->assertDatabaseMissing('classes', ['id' => $myClass->id]);
     }
 }

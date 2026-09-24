@@ -71,7 +71,9 @@ class KlasFoundationController extends Controller
             'role' => ['required', 'in:school_administrator,teacher'],
         ]);
         $school = School::findOrFail($data['school_id']);
-        abort_unless($request->user()->isOrganizationAdministrator($school->organization_id), 403);
+        // A school with no organization can't be invited into — passing null
+        // straight through would mean "any organization administrator".
+        abort_unless($school->organization_id !== null && $request->user()->isOrganizationAdministrator($school->organization_id), 403);
         $token = Str::random(64);
         StaffInvitation::create([
             'organization_id' => $school->organization_id,

@@ -4,17 +4,16 @@ namespace Tests\Feature\Admin;
 
 use App\Models\Computer;
 use App\Models\LoginSession;
-use App\Models\School;
 use App\Models\SchoolClass;
 use App\Models\Student;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Tests\Concerns\BuildsAdminFixtures;
 use Tests\TestCase;
 
 class ReportControllerTest extends TestCase
 {
-    use RefreshDatabase;
+    use BuildsAdminFixtures, RefreshDatabase;
 
     public function test_guests_cannot_access_reports(): void
     {
@@ -23,17 +22,17 @@ class ReportControllerTest extends TestCase
 
     public function test_with_no_class_selected_the_page_renders_without_a_report(): void
     {
-        $user = User::factory()->create();
+        $admin = $this->makeSchoolAdmin($this->makeSchool());
 
-        $response = $this->actingAs($user)->get(route('admin.reports.index'))->assertOk();
+        $response = $this->actingAs($admin)->get(route('admin.reports.index'))->assertOk();
 
         $this->assertNull($response->inertiaProps('report'));
     }
 
     public function test_report_computes_totals_average_duration_and_no_usage_list(): void
     {
-        $user = User::factory()->create();
-        $school = School::create(['name' => 'Demo Primary School']);
+        $school = $this->makeSchool();
+        $admin = $this->makeSchoolAdmin($school);
         $class = SchoolClass::create(['school_id' => $school->id, 'name' => 'Grade 4 Blue']);
 
         $computer = Computer::create(['school_id' => $school->id, 'name' => 'Lab PC 1', 'role' => 'student']);
@@ -64,7 +63,7 @@ class ReportControllerTest extends TestCase
             'logout_time' => now()->subYear()->addHours(5),
         ]);
 
-        $response = $this->actingAs($user)->get(route('admin.reports.index', [
+        $response = $this->actingAs($admin)->get(route('admin.reports.index', [
             'class_id' => $class->id,
             'from' => now()->subDays(2)->toDateString(),
             'to' => now()->toDateString(),
@@ -84,12 +83,12 @@ class ReportControllerTest extends TestCase
 
     public function test_report_handles_a_class_with_no_sessions_at_all(): void
     {
-        $user = User::factory()->create();
-        $school = School::create(['name' => 'Demo Primary School']);
+        $school = $this->makeSchool();
+        $admin = $this->makeSchoolAdmin($school);
         $class = SchoolClass::create(['school_id' => $school->id, 'name' => 'Grade 4 Blue']);
         Student::create(['school_id' => $school->id, 'class_id' => $class->id, 'admission_number' => '1001', 'full_name' => 'Amara Otieno']);
 
-        $response = $this->actingAs($user)
+        $response = $this->actingAs($admin)
             ->get(route('admin.reports.index', ['class_id' => $class->id]))
             ->assertOk();
 
@@ -98,5 +97,20 @@ class ReportControllerTest extends TestCase
         $this->assertSame(0, $report['active_students']);
         $this->assertNull($report['average_duration_minutes']);
         $this->assertCount(1, $report['no_usage_students']);
+    }
+
+    public function test_a_class_in_a_school_the_administrator_does_not_run_yields_no_report(): void
+    {
+        $mine = $this->makeSchool(null, 'My School');
+        $theirs = $this->makeSchool(null, 'Their School');
+        $theirClass = SchoolClass::create(['school_id' => $theirs->id, 'name' => 'Grade 4 Blue']);
+        $admin = $this->makeSchoolAdmin($mine);
+
+        $response = $this->actingAs($admin)
+            ->get(route('admin.reports.index', ['class_id' => $theirClass->id]))
+            ->assertOk();
+
+        $this->assertNull($response->inertiaProps('report'));
+        $this->assertSame([], $response->inertiaProps('classes'));
     }
 }

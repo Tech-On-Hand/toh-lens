@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\School;
 use App\Models\SchoolClass;
 use App\Models\Student;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -17,9 +18,15 @@ class StudentController extends Controller
 {
     public function index(Request $request): Response
     {
+        /** @var User $user */
+        $user = $request->user();
+        $schoolIds = $user->administeredSchoolIds();
+
         $schoolId = $request->integer('school_id') ?: null;
+        abort_if($schoolId && ! $schoolIds->contains($schoolId), 403);
 
         $students = Student::query()
+            ->whereIn('school_id', $schoolIds)
             ->with(['school:id,name', 'schoolClass:id,name'])
             ->when($schoolId, fn ($query) => $query->where('school_id', $schoolId))
             ->orderBy('full_name')
@@ -27,14 +34,18 @@ class StudentController extends Controller
 
         return Inertia::render('admin/students/index', [
             'students' => $students,
-            'schools' => School::query()->orderBy('name')->get(['id', 'name']),
-            'classes' => SchoolClass::query()->orderBy('name')->get(['id', 'name', 'school_id']),
+            'schools' => School::query()->whereIn('id', $schoolIds)->orderBy('name')->get(['id', 'name']),
+            'classes' => SchoolClass::query()->whereIn('school_id', $schoolIds)->orderBy('name')->get(['id', 'name', 'school_id']),
             'filters' => ['school_id' => $schoolId],
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
+        /** @var User $user */
+        $user = $request->user();
+        abort_unless($user->isSchoolAdministrator((int) $request->input('school_id')), 403);
+
         $data = $this->validated($request);
 
         Student::create($data);
@@ -46,6 +57,14 @@ class StudentController extends Controller
 
     public function update(Request $request, Student $student): RedirectResponse
     {
+        /** @var User $user */
+        $user = $request->user();
+        abort_unless($user->isSchoolAdministrator($student->school_id), 403);
+        // The form always submits the student's own school_id (the field
+        // isn't editable), but check it matches in case that ever changes —
+        // moving a student to a school this admin doesn't run is not a plain edit.
+        abort_unless((int) $request->input('school_id') === $student->school_id, 403);
+
         $data = $this->validated($request, $student);
 
         $student->update($data);
@@ -73,6 +92,11 @@ class StudentController extends Controller
         ]);
 
         $schoolId = (int) $request->input('school_id');
+
+        /** @var User $user */
+        $user = $request->user();
+        abort_unless($user->isSchoolAdministrator($schoolId), 403);
+
         $classesByName = SchoolClass::query()
             ->where('school_id', $schoolId)
             ->get()
@@ -158,8 +182,12 @@ class StudentController extends Controller
         return back();
     }
 
-    public function destroy(Student $student): RedirectResponse
+    public function destroy(Request $request, Student $student): RedirectResponse
     {
+        /** @var User $user */
+        $user = $request->user();
+        abort_unless($user->isSchoolAdministrator($student->school_id), 403);
+
         $student->delete();
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Student deleted.']);
@@ -174,7 +202,10 @@ class StudentController extends Controller
     {
         $data = $request->validate([
             'school_id' => ['required', 'exists:schools,id'],
-            'class_id' => ['nullable', 'exists:classes,id'],
+            'class_id' => [
+                'nullable',
+                Rule::exists('classes', 'id')->where('school_id', $request->input('school_id')),
+            ],
             'admission_number' => [
                 'required',
                 'string',

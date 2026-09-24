@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\LoginSession;
 use App\Models\SchoolClass;
 use App\Models\Student;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -21,12 +23,17 @@ class ReportController extends Controller
      */
     public function index(Request $request): Response
     {
+        /** @var User $user */
+        $user = $request->user();
+        $schoolIds = $user->administeredSchoolIds();
+
         $classId = $request->integer('class_id') ?: null;
         $from = Carbon::parse($request->input('from') ?: now()->startOfMonth()->toDateString())->startOfDay();
         $to = Carbon::parse($request->input('to') ?: now()->toDateString())->endOfDay();
 
         return Inertia::render('admin/reports/index', [
             'classes' => SchoolClass::query()
+                ->whereIn('school_id', $schoolIds)
                 ->with('school:id,name')
                 ->orderBy('name')
                 ->get(['id', 'name', 'school_id']),
@@ -35,18 +42,19 @@ class ReportController extends Controller
                 'from' => $from->toDateString(),
                 'to' => $to->toDateString(),
             ],
-            'report' => $classId ? $this->buildReport($classId, $from, $to) : null,
+            'report' => $classId ? $this->buildReport($classId, $schoolIds, $from, $to) : null,
         ]);
     }
 
     /**
+     * @param  Collection<int, int>  $schoolIds
      * @return array<string, mixed>|null
      */
-    private function buildReport(int $classId, Carbon $from, Carbon $to): ?array
+    private function buildReport(int $classId, Collection $schoolIds, Carbon $from, Carbon $to): ?array
     {
         $class = SchoolClass::with('school:id,name')->find($classId);
 
-        if (! $class) {
+        if (! $class || ! $schoolIds->contains($class->school_id)) {
             return null;
         }
 

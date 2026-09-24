@@ -9,12 +9,19 @@ export type ClassOption = {
     school_id: number;
 };
 
+export type OrganizationOption = {
+    id: number;
+    name: string;
+};
+
 export type School = {
     id: number;
     name: string;
     classes_count: number;
     students_count: number;
     computers_count: number;
+    /** Whether the current viewer may delete this school (organization administrators only). */
+    can_delete: boolean;
 };
 
 export type SchoolClassRow = {

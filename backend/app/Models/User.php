@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Collection;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
@@ -75,9 +76,32 @@ class User extends Authenticatable implements PasskeyUser
 
     public function isSchoolAdministrator(int $schoolId): bool
     {
-        return $this->isOrganizationAdministrator(
-            School::query()->whereKey($schoolId)->value('organization_id')
-        ) || $this->schools()->whereKey($schoolId)->wherePivot('role', 'administrator')->exists();
+        $organizationId = School::query()->whereKey($schoolId)->value('organization_id');
+
+        // A school with no organization (an orphan, e.g. one created before
+        // Klas or via the legacy admin panel) must never be treated as
+        // administered by "any" organization administrator — passing null
+        // through to isOrganizationAdministrator() means exactly that,
+        // since it treats a missing id as "no filter, any organization".
+        return ($organizationId !== null && $this->isOrganizationAdministrator($organizationId))
+            || $this->schools()->whereKey($schoolId)->wherePivot('role', 'administrator')->exists();
+    }
+
+    /**
+     * Every school this user can manage: schools they are a direct
+     * administrator of, plus every school in an organization they
+     * administer. Used to scope the admin panels so one school's
+     * administrator can never see or act on another school's data.
+     *
+     * @return Collection<int, int>
+     */
+    public function administeredSchoolIds(): Collection
+    {
+        $organizationIds = $this->organizations()->wherePivot('role', 'administrator')->pluck('organizations.id');
+        $direct = $this->schools()->wherePivot('role', 'administrator')->pluck('schools.id');
+        $viaOrganization = School::query()->whereIn('organization_id', $organizationIds)->pluck('id');
+
+        return $direct->merge($viaOrganization)->unique()->values();
     }
 
     public function canViewClassroom(Classroom $classroom): bool
