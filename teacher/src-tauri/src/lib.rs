@@ -269,6 +269,20 @@ async fn get_activity_report(state: State<'_, AppState>, classroom_id: i64, from
 }
 
 #[tauri::command]
+async fn list_audit(state: State<'_, AppState>, school_id: i64, classroom_id: Option<i64>, action: Option<String>, before_id: Option<i64>, limit: u32) -> Result<serde_json::Value, String> {
+    let mut path = format!("api/v1/admin/audit?school_id={school_id}&limit={limit}");
+    if let Some(classroom_id) = classroom_id { path.push_str(&format!("&classroom_id={classroom_id}")); }
+    if let Some(action) = action { path.push_str(&format!("&action={action}")); }
+    if let Some(before_id) = before_id { path.push_str(&format!("&before_id={before_id}")); }
+    authenticated_get(&state, &path).await
+}
+
+#[tauri::command]
+async fn get_fleet(state: State<'_, AppState>, school_id: i64) -> Result<serde_json::Value, String> {
+    authenticated_get(&state, &format!("api/v1/admin/fleet?school_id={school_id}")).await
+}
+
+#[tauri::command]
 async fn list_announcements(state: State<'_, AppState>, classroom_id: i64) -> Result<serde_json::Value, String> {
     authenticated_get(&state, &format!("api/v1/teacher/classrooms/{classroom_id}/announcements")).await
 }
@@ -367,7 +381,7 @@ pub fn run() {
             session: Arc::new(Mutex::new(None)),
             realtime_generation: Arc::new(AtomicU64::new(0)),
         })
-        .invoke_handler(tauri::generate_handler![login, restore_session, logout, list_classrooms, list_devices, list_browser_tabs, send_command, get_command, get_policy, start_focus, end_focus, add_block_rule, remove_block_rule, revoke_device, start_realtime, start_screen_session, poll_screen_session, send_screen_candidates, set_screen_quality, end_screen_session, start_broadcast, end_broadcast, list_announcements, send_announcement, resolve_help_request, list_chat_messages, send_chat_message, get_activity_report])
+        .invoke_handler(tauri::generate_handler![login, restore_session, logout, list_classrooms, list_devices, list_browser_tabs, send_command, get_command, get_policy, start_focus, end_focus, add_block_rule, remove_block_rule, revoke_device, start_realtime, start_screen_session, poll_screen_session, send_screen_candidates, set_screen_quality, end_screen_session, start_broadcast, end_broadcast, list_announcements, send_announcement, resolve_help_request, list_chat_messages, send_chat_message, get_activity_report, list_audit, get_fleet])
         .run(tauri::generate_context!())
         .expect("error while running TOH Klas Teacher");
 }

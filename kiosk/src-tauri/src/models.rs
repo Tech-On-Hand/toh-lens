@@ -99,6 +99,17 @@ pub struct HeartbeatRequest {
     pub hostname: String,
     pub operating_system: String,
     pub agent_version: String,
+    pub health: HeartbeatHealth,
+}
+
+/// What this agent tells the server about itself so an administrator can spot a
+/// machine that needs attention (see the fleet view).
+#[derive(Debug, Clone, Serialize)]
+pub struct HeartbeatHealth {
+    /// Login sessions recorded here that the server has not confirmed yet.
+    pub unsynced_sessions: i64,
+    /// Whether this Windows build can capture the screen at all (screen watch and broadcast need it).
+    pub screen_capture_supported: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]

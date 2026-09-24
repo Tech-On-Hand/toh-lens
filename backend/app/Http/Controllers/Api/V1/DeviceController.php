@@ -20,6 +20,9 @@ class DeviceController extends ApiController
             'hostname' => ['nullable', 'string', 'max:255'],
             'operating_system' => ['nullable', 'string', 'max:255'],
             'agent_version' => ['required', 'string', 'max:50'],
+            'health' => ['nullable', 'array'],
+            'health.screen_capture_supported' => ['nullable', 'boolean'],
+            'health.unsynced_sessions' => ['nullable', 'integer', 'min:0', 'max:1000000'],
         ]);
 
         /** @var Computer $device */
@@ -33,6 +36,10 @@ class DeviceController extends ApiController
             'hostname' => $data['hostname'] ?? $device->hostname,
             'operating_system' => $data['operating_system'] ?? $device->operating_system,
             'agent_version' => $data['agent_version'],
+            'health' => isset($data['health']) ? [
+                'screen_capture_supported' => $data['health']['screen_capture_supported'] ?? null,
+                'unsynced_sessions' => $data['health']['unsynced_sessions'] ?? null,
+            ] : $device->health,
             'last_seen_at' => now(),
             'presence_status' => 'online',
         ]);

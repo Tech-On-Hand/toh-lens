@@ -127,3 +127,30 @@ export interface ActivityReport {
   }[];
   classroom_apps: { process: string; name: string; minutes: number }[];
 }
+
+export interface AuditEntry {
+  id: number;
+  action: string;
+  actor: { id: number; name: string | null } | null;
+  classroom_id: number | null;
+  classroom_name: string | null;
+  device_id: number | null;
+  device_name: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface Fleet {
+  summary: { devices: number; online: number; needing_attention: number; newest_agent_version: string | null };
+  devices: {
+    id: number;
+    name: string;
+    classroom: string | null;
+    status: "online" | "offline";
+    last_seen_at: string | null;
+    agent_version: string | null;
+    operating_system: string | null;
+    hostname: string | null;
+    issues: { code: string; message: string }[];
+  }[];
+}

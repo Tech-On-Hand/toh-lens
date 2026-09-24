@@ -277,3 +277,17 @@ Per student login session that began in the range: `student`, `device`, `login_t
 ## Retention
 
 Browsing history and application activity older than `TOH_ACTIVITY_RETENTION_DAYS` (default 90, `config/toh.php`) are deleted by `php artisan activity:prune`, scheduled daily at 02:30 (`--days=` overrides it once). Schools and parents should be told what is collected and for how long, as with browser URLs.
+
+
+## Audit history and fleet health (school administrators)
+
+| Method | Path | Principal | Purpose |
+|---|---|---|---|
+| GET | `/api/v1/admin/audit?school_id=&classroom_id=&action=&before_id=&limit=` | School administrator | Newest first, at most 100. Each entry now also carries `classroom_name` and `device_name` |
+| GET | `/api/v1/admin/fleet?school_id=` | School administrator | Every non-revoked device in the school with its `issues`, devices needing attention first, plus a `summary` (`devices`, `online`, `needing_attention`, `newest_agent_version`) |
+
+The Teacher app shows both to administrators as "Audit" and "Fleet" buttons. The audit panel filters by whole school or one classroom and by action, labels every action in plain words and pages back with "Load older"; entries are read-only.
+
+**Health on the heartbeat.** `POST /device/heartbeat` accepts an optional `health` object: `unsynced_sessions` (login sessions the agent has recorded but the server has not confirmed) and `screen_capture_supported` (whether this Windows build can capture the screen at all). It replaces the last one on every heartbeat; an older agent that sends none leaves the last known state alone.
+
+**Issues** are only raised for something the device reported or the server can see, so they can be trusted: `never_seen` (enrolled, never connected), `offline` (not seen for 24 hours; a PC switched off overnight or at the weekend is not flagged), `outdated_agent` (older than the newest agent in that school), and, only while the device is online, `screen_capture` (Windows cannot capture the screen, so screen watch and broadcast will not work) and `sync_backlog` (5 or more sessions waiting to sync). Whether the browser extension is connected is deliberately not an issue: an idle PC with no browser open looks identical to a broken one.

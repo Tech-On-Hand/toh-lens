@@ -1,5 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  AuditEntry,
+  Fleet,
   ActivityReport,
   BrowserTab,
   Classroom,
@@ -61,3 +63,6 @@ export const sendChatMessage = (classroomId: number, deviceId: number, messageId
   invoke<ChatMessage>("send_chat_message", { classroomId, deviceId, messageId, body });
 export const getActivityReport = (classroomId: number, from: string, to: string) =>
   invoke<ActivityReport>("get_activity_report", { classroomId, from, to });
+export const listAudit = (schoolId: number, classroomId: number | null, action: string | null, beforeId: number | null, limit: number) =>
+  invoke<AuditEntry[]>("list_audit", { schoolId, classroomId, action, beforeId, limit });
+export const getFleet = (schoolId: number) => invoke<Fleet>("get_fleet", { schoolId });

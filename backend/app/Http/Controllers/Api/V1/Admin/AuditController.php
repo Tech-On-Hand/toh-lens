@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Http\Controllers\Api\V1\ApiController;
 use App\Models\AuditLog;
+use App\Models\Classroom;
+use App\Models\Computer;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -34,13 +36,17 @@ class AuditController extends ApiController
             ->get();
 
         $actors = User::query()->whereIn('id', $logs->pluck('actor_id')->filter())->pluck('name', 'id');
+        $classrooms = Classroom::query()->whereIn('id', $logs->pluck('classroom_id')->filter())->pluck('name', 'id');
+        $devices = Computer::query()->whereIn('id', $logs->pluck('computer_id')->filter())->pluck('name', 'id');
 
         return $this->success($logs->map(fn (AuditLog $log) => [
             'id' => $log->id,
             'action' => $log->action,
             'actor' => $log->actor_id ? ['id' => $log->actor_id, 'name' => $actors[$log->actor_id] ?? null] : null,
             'classroom_id' => $log->classroom_id,
+            'classroom_name' => $classrooms[$log->classroom_id] ?? null,
             'device_id' => $log->computer_id,
+            'device_name' => $devices[$log->computer_id] ?? null,
             'metadata' => $log->metadata,
             'created_at' => $log->created_at->toIso8601String(),
         ]));

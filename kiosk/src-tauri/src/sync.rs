@@ -94,6 +94,13 @@ pub async fn send_heartbeat(state: &AppState) {
         hostname: std::env::var("COMPUTERNAME").unwrap_or_else(|_| "Windows PC".into()),
         operating_system: format!("Windows {}", std::env::consts::ARCH),
         agent_version: env!("CARGO_PKG_VERSION").into(),
+        health: crate::models::HeartbeatHealth {
+            unsynced_sessions: {
+                let conn = state.db.lock().unwrap();
+                session_repo::unsynced_count(&conn).unwrap_or(0)
+            },
+            screen_capture_supported: windows_capture::graphics_capture_api::GraphicsCaptureApi::is_supported().unwrap_or(false),
+        },
     };
 
     if let Ok(data) = crate::api_client::heartbeat(&state.http, &base_url, &token, request).await {

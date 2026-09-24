@@ -42,6 +42,10 @@ Scheduling, activity/reporting, audit history, silent installers, managed extens
 
 Not part of this item: **restricting** which apps can run. Tracking does not stop anyone from opening an app; blocking is Windows-level (AppLocker or similar, see `provisioning/windows-kiosk-hardening.md`) and would need its own review, as with the Milestone 3 note on stronger enforcement.
 
+### Audit history and fleet health (built)
+
+**Status:** built and backend-tested, not yet seen on screen. School administrators get an "Audit" panel in the Teacher app (the audit trail was API-only until now: filter by school or classroom and by action, plain-language labels, older entries on demand) and a "Fleet" panel listing every device in the school with what needs attention: never connected, missing for over a day, running an older agent than the rest of the school, unable to capture the screen, or with a sync backlog. The agent now reports its own health on each heartbeat. See `toh-klas-contracts.md`.
+
 ### Still to do in this milestone
 
-Scheduling, an audit-history screen (the trail is API-only today), silent installers, managed extension deployment, signed updates, fleet health, and pilot-to-school rollout tooling.
+Scheduling, silent installers, managed extension deployment, signed updates, and pilot-to-school rollout tooling. The last four need decisions first (a code-signing certificate, where updates are hosted, how devices are managed).

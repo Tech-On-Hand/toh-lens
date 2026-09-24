@@ -11,7 +11,7 @@ use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable([
     'device_uuid', 'school_id', 'classroom_id', 'class_id', 'name', 'role', 'hostname',
-    'operating_system', 'agent_version', 'enrolled_at', 'last_seen_at', 'presence_status', 'revoked_at',
+    'operating_system', 'agent_version', 'health', 'enrolled_at', 'last_seen_at', 'presence_status', 'revoked_at',
     'configuration_version',
 ])]
 class Computer extends Model
@@ -24,6 +24,7 @@ class Computer extends Model
             'enrolled_at' => 'datetime',
             'last_seen_at' => 'datetime',
             'revoked_at' => 'datetime',
+            'health' => 'array',
         ];
     }
 
