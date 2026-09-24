@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\Admin\DeviceController as AdminDeviceController;
 use App\Http\Controllers\Api\V1\Admin\EnrollmentCodeController;
 use App\Http\Controllers\Api\V1\Admin\InvitationController;
 use App\Http\Controllers\Api\V1\AuthController as V1AuthController;
+use App\Http\Controllers\Api\V1\DeviceBroadcastController;
 use App\Http\Controllers\Api\V1\DeviceBrowserController;
 use App\Http\Controllers\Api\V1\DeviceCommandController;
 use App\Http\Controllers\Api\V1\DeviceController as V1DeviceController;
@@ -17,6 +18,7 @@ use App\Http\Controllers\Api\V1\DeviceRosterController;
 use App\Http\Controllers\Api\V1\DeviceScreenSessionController;
 use App\Http\Controllers\Api\V1\DeviceSessionController;
 use App\Http\Controllers\Api\V1\InvitationAcceptanceController;
+use App\Http\Controllers\Api\V1\TeacherBroadcastController;
 use App\Http\Controllers\Api\V1\TeacherClassroomController;
 use App\Http\Controllers\Api\V1\TeacherCommandController;
 use App\Http\Controllers\Api\V1\TeacherScreenSessionController;
@@ -50,6 +52,11 @@ Route::prefix('v1')->group(function () {
         Route::get('screen-sessions/current', [DeviceScreenSessionController::class, 'current']);
         Route::patch('screen-sessions/{uuid}', [DeviceScreenSessionController::class, 'answer']);
         Route::post('screen-sessions/{uuid}/candidates', [DeviceScreenSessionController::class, 'addCandidates']);
+        Route::get('broadcasts/current', [DeviceBroadcastController::class, 'current']);
+        Route::post('broadcasts/{uuid}/join', [DeviceBroadcastController::class, 'join']);
+        Route::get('broadcasts/outgoing', [DeviceBroadcastController::class, 'outgoing']);
+        Route::patch('broadcasts/targets/{uuid}', [DeviceBroadcastController::class, 'answer']);
+        Route::post('broadcasts/targets/{uuid}/candidates', [DeviceBroadcastController::class, 'addCandidates']);
     });
 
     Route::middleware(['auth:sanctum', 'teacher.token'])->group(function () {
@@ -64,6 +71,8 @@ Route::prefix('v1')->group(function () {
         Route::post('teacher/classrooms/{classroom}/devices/{device}/screen-sessions/{uuid}/candidates', [TeacherScreenSessionController::class, 'addCandidates']);
         Route::post('teacher/classrooms/{classroom}/devices/{device}/screen-sessions/{uuid}/quality', [TeacherScreenSessionController::class, 'setQuality'])->middleware('throttle:30,1');
         Route::post('teacher/classrooms/{classroom}/devices/{device}/screen-sessions/{uuid}/end', [TeacherScreenSessionController::class, 'end']);
+        Route::post('teacher/classrooms/{classroom}/devices/{device}/broadcast', [TeacherBroadcastController::class, 'store'])->middleware('throttle:30,1');
+        Route::post('teacher/classrooms/{classroom}/devices/{device}/broadcast/{uuid}/end', [TeacherBroadcastController::class, 'end']);
 
         Route::get('teacher/classrooms/{classroom}/policy', [TeacherPolicyController::class, 'show']);
         Route::post('teacher/classrooms/{classroom}/focus-sessions', [TeacherPolicyController::class, 'startFocus'])->middleware('throttle:30,1');

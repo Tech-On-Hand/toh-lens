@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import "./App.css";
+import { BroadcastViewer } from "./components/BroadcastViewer";
 import { commandErrorMessage, getConfig, getOpenSession } from "./lib/commands";
 import { installKioskGuards } from "./lib/kioskGuards";
 import { KeypadScreen } from "./screens/KeypadScreen";
@@ -52,11 +53,19 @@ function App() {
     return <SetupScreen onComplete={() => setScreen({ kind: "keypad" })} />;
   }
 
-  if (screen.kind === "keypad") {
-    return <KeypadScreen onLogin={(session) => setScreen({ kind: "loggedin", session })} />;
-  }
-
-  return <LoggedInScreen session={screen.session} onLogout={() => setScreen({ kind: "keypad" })} />;
+  // Mounted once here, not inside each screen: a broadcast can be running
+  // whether or not a student is logged in, and it must survive keypad <->
+  // logged-in transitions rather than tearing down its connection on every one.
+  return (
+    <>
+      {screen.kind === "keypad" ? (
+        <KeypadScreen onLogin={(session) => setScreen({ kind: "loggedin", session })} />
+      ) : (
+        <LoggedInScreen session={screen.session} onLogout={() => setScreen({ kind: "keypad" })} />
+      )}
+      <BroadcastViewer />
+    </>
+  );
 }
 
 export default App;

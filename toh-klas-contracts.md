@@ -129,7 +129,7 @@ Enforced by the extension with `declarativeNetRequest` dynamic rules on top-leve
 
 # Milestone 4 contracts — screen sharing (thumbnails)
 
-Direction: each student device streams its own screen to at most one watching teacher at a time (not fan-out). One `webrtc-rs` connection per watched device, switchable between thumbnail and full-view quality on that same connection (no teacher-broadcast — see `spikes/README.md` for what that would need).
+Direction: each student device streams its own screen to at most one watching teacher at a time (not fan-out). One `webrtc-rs` connection per watched device, switchable between thumbnail and full-view quality on that same connection. Teacher-broadcast — one device's screen shown to the whole class — is a separate, independent mechanism; see its own section below.
 
 The device has no live socket; it polls, same as commands and policy. The teacher already holds a Reverb socket for the classroom, so state changes the device makes are pushed to the teacher as a nudge (`device.screen.updated`, no payload beyond the ids) and the teacher re-fetches over REST. Nothing broadcasts to the device — it never listens.
 
@@ -158,4 +158,30 @@ Only one `pending`/`active` session per device (`current` scope); starting a sec
 
 Windows Graphics Capture of the primary monitor, downscaled with a box/area filter (not cropped — `windows-capture` always hands over the monitor's real resolution regardless of target size) and encoded with the same Media Foundation H.264 encoder proven in `spikes/native-capture`. Two quality presets, chosen by the session's `quality` column: `thumb` (`320x180`, 5fps, ~150 kbps, the default) and `full` (`1280x720`, 15fps, ~1.5 Mbps, requested on demand for a closer look at one device). Nothing captured or encoded while unwatched.
 
-Switching quality mid-watch rebuilds the capture+encoder pair rather than reconfiguring it live — Media Foundation doesn't support changing a transform's output frame size once streaming has started — but reuses the same peer connection and track, so the viewer never re-negotiates. `webrtc-rs`, empty ICE server list (direct connections only — this is the case the spikes proved works on a shared classroom LAN; a network that needs TURN falls back to "can't connect," which is surfaced, not silently retried forever).
+Switching quality mid-watch rebuilds the capture+encoder pair rather than reconfiguring it live — Media Foundation doesn't support changing a transform's output frame size once streaming has started — but reuses the same peer connection and track, so the viewer never re-negotiates. `webrtc-rs`, one public STUN server configured (`stun:stun.l.google.com:19302`) and nothing else — still fully direct P2P, not a relay like TURN (still absent — see below for why STUN alone was necessary, and why the empty-ice-servers design the spikes proved doesn't quite hold across two real machines).
+
+**Chromium's mDNS-obfuscated local candidates, and why STUN was needed to work around it.** Any peer running in a Chromium-based webview (the Teacher app watching a device, or a receiving kiosk in a broadcast) offers its local ICE candidate as a random `xxxxxxxx-....local` hostname instead of a real IP — a privacy feature that requires the other side to resolve it via multicast DNS before a connection can complete. On one machine this never mattered (loopback works either way); across two real machines it silently breaks the connection the moment mDNS doesn't reach both sides — candidates still get exchanged over the REST signaling either way, so the session looks `active` with an answer and candidates on both sides, but no track ever arrives. The usual fix (`--force-webrtc-ip-handling-policy=default_public_and_private_interfaces`, set via `additionalBrowserArgs` in all three `tauri.conf.json`s) did not work: confirmed present in the running WebView2 process's own command line, yet the candidate stayed obfuscated — WebView2 does not honor this switch the way Electron/plain Chromium does. Adding the STUN server sidesteps the problem instead of fixing it: it gives the ICE agent a second, real-IP candidate that doesn't depend on mDNS at all, so the connection succeeds via that one even when the obfuscated candidate is unusable. A network with no outbound access to the STUN server is the resulting gap — same "surfaced as can't connect, not silently retried" behavior as the TURN gap.
+
+## Teacher broadcast
+
+One device's screen, shown live on every other online kiosk in the classroom — direct kiosk-to-kiosk connections (the "one-encode-N-sends" pattern proven in `spikes/native-capture`), not relayed through the teacher or backend, which only coordinate who is broadcasting to whom. Only available on a device already being watched by the teacher who starts it; runs as its own independent capture+encode pipeline, fixed at `1280x720`/15fps/~1.5 Mbps, separate from that regular watch session so the two never interfere with each other's quality.
+
+Signaling direction is reversed from screen_sessions: each receiving kiosk is the offerer (the same role a teacher plays watching a device), and the source device is always the answerer for its own broadcast's targets (the same role a watched device plays) — structurally the same kind of connection, just device-to-device. The receiving side runs in the kiosk's own webview using its native WebRTC support, the same trick the Teacher app uses, rather than a Rust-side decoder.
+
+### REST
+
+| Method | Path | Principal | Purpose |
+|---|---|---|---|
+| POST | `/api/v1/teacher/classrooms/{c}/devices/{d}/broadcast` | Controller | Start broadcasting this device. `409 DEVICE_OFFLINE` / `409 CLASSROOM_ALREADY_BROADCASTING` |
+| POST | `/api/v1/teacher/classrooms/{c}/devices/{d}/broadcast/{id}/end` | Controller | Stop broadcasting; ends every current target too |
+| GET | `/api/v1/device/broadcasts/current?after=` | Any device | Is my classroom broadcasting, and (once joined) my own target's answer and new source-side candidates |
+| POST | `/api/v1/device/broadcasts/{id}/join` | Any device | Join as a receiving kiosk: body `{offer}`. Idempotent — joining twice returns the same target |
+| GET | `/api/v1/device/broadcasts/outgoing` | Source device | Every current target waiting for an answer or with new candidates, for the broadcast this device is the source of. No `after` cursor — resent in full each poll, since a classroom's kiosk count and per-connection candidate count are both small |
+| PATCH | `/api/v1/device/broadcasts/targets/{uuid}` | Source device | Answer one target: body `{answer}`. Idempotent once active |
+| POST | `/api/v1/device/broadcasts/targets/{uuid}/candidates` | Source or target device | Send ICE candidates; which side posted is inferred from which device is authenticated |
+
+The teacher device-grid snapshot (`GET .../devices`) gains `broadcast_id`: the active broadcast's id if this device is currently the source, otherwise `null`.
+
+### Lifecycle
+
+A broadcast is `active` → `ended`. Only one active broadcast per classroom at a time (not per device), enforced the same way as one-viewer-per-device. Each target is `pending` (offer given) → `active` (answered) → `ended`, mirroring `screen_sessions.status` and its `end_reason`s exactly: `ended`, `expired` (source never answered within 30s), `target_lost` (the receiving kiosk's own poll — its liveness signal, same as a teacher's — went quiet for 30s while active), `source_offline`, `source_revoked` (both also end the broadcast itself and every current target, not just the one row).

@@ -14,7 +14,8 @@
       {
         "title": "TOH Klas Student (dev)",
         "width": 1280,
-        "height": 800
+        "height": 800,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --force-webrtc-ip-handling-policy=default_public_and_private_interfaces"
       }
     ],
     "security": {

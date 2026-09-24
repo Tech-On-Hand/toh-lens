@@ -52,7 +52,7 @@ header .eyebrow { margin-top: 0; }
 .screen-placeholder video { width: 100%; height: 100%; object-fit: cover; background: #10160f; }
 .thumb-watch { position: absolute; right: 8px; bottom: 8px; padding: 5px 9px; border: 1px solid #cbd7ca; border-radius: 7px; background: white; color: #2d5a3d; font-size: 11px; font-weight: 600; cursor: pointer; }
 .thumb-watch:disabled { opacity: .6; cursor: default; }
-.thumb-controls { position: absolute; right: 8px; bottom: 8px; display: flex; gap: 6px; }
+.thumb-controls { position: absolute; right: 8px; bottom: 8px; left: 8px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .thumb-quality, .thumb-stop { padding: 5px 9px; border: 0; border-radius: 7px; background: rgba(16,22,15,.65); color: white; font-size: 11px; font-weight: 600; cursor: pointer; }
 .thumb-error { margin: 6px 0 0; font-size: 11px; color: #943c3c; }
 

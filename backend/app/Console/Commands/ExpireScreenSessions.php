@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\ScreenBroadcastTarget;
 use App\Models\ScreenSession;
 use Illuminate\Console\Command;
 
@@ -9,7 +10,7 @@ class ExpireScreenSessions extends Command
 {
     protected $signature = 'screen-sessions:expire';
 
-    protected $description = 'End screen-watch requests the device never answered, and active ones the viewer went quiet on';
+    protected $description = 'End screen-watch requests and broadcast joins nobody answered, and active ones the other side went quiet on';
 
     /** The device polls every few seconds; 30s with no answer means it is unreachable. */
     private const PENDING_TIMEOUT_SECONDS = 30;
@@ -35,6 +36,20 @@ class ExpireScreenSessions extends Command
             ->where('status', 'active')
             ->where('updated_at', '<=', now()->subSeconds(self::ACTIVE_VIEWER_TIMEOUT_SECONDS))
             ->update(['status' => 'ended', 'ended_at' => now(), 'end_reason' => 'viewer_lost']);
+
+        // Same two failure modes as a screen session, mirrored for a broadcast
+        // target: the source (playing the device's role, answering) never
+        // responded, or the receiving kiosk (playing the viewer's role, polling)
+        // went quiet after joining.
+        ScreenBroadcastTarget::query()
+            ->where('status', 'pending')
+            ->where('started_at', '<=', now()->subSeconds(self::PENDING_TIMEOUT_SECONDS))
+            ->update(['status' => 'ended', 'ended_at' => now(), 'end_reason' => 'expired']);
+
+        ScreenBroadcastTarget::query()
+            ->where('status', 'active')
+            ->where('updated_at', '<=', now()->subSeconds(self::ACTIVE_VIEWER_TIMEOUT_SECONDS))
+            ->update(['status' => 'ended', 'ended_at' => now(), 'end_reason' => 'target_lost']);
 
         return self::SUCCESS;
     }

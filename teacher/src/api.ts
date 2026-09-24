@@ -41,3 +41,7 @@ export const setScreenQuality = (classroomId: number, deviceId: number, sessionI
   invoke<ScreenSessionSummary>("set_screen_quality", { classroomId, deviceId, sessionId, quality });
 export const endScreenSession = (classroomId: number, deviceId: number, sessionId: string) =>
   invoke<unknown>("end_screen_session", { classroomId, deviceId, sessionId });
+export const startBroadcast = (classroomId: number, deviceId: number) =>
+  invoke<{ id: string }>("start_broadcast", { classroomId, deviceId });
+export const endBroadcast = (classroomId: number, deviceId: number, broadcastId: string) =>
+  invoke<unknown>("end_broadcast", { classroomId, deviceId, broadcastId });

@@ -227,6 +227,38 @@ button {
   50% { opacity: 0.35; }
 }
 
+/* --- Broadcast viewer --- */
+
+.broadcast-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #000000;
+}
+
+.broadcast-overlay video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.broadcast-badge {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  background: #ffffffcc;
+  color: #1f1f1f;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 /* --- Sync status badge --- */
 
 .sync-status-badge {

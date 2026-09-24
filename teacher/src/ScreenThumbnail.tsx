@@ -6,11 +6,21 @@ import type { Device } from "./types";
 // a bit faster here just keeps the teacher's view snappier, not more current.
 const POLL_MS = 1000;
 
+// A STUN server only ever answers "what's your real address" once, during
+// setup — it never carries media, so this is still a direct P2P connection,
+// not a relay like TURN. Needed because this webview's local ICE candidate is
+// an mDNS-obfuscated hostname (Chromium's privacy feature) that WebView2 won't
+// disable via the usual --force-webrtc-ip-handling-policy flag; STUN gives the
+// kiosk a second, real-IP candidate to fall back to when mDNS resolution
+// doesn't reach across two separate machines.
+const ICE_SERVERS: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
+
 export default function ScreenThumbnail({ classroomId, device }: { classroomId: number; device: Device }) {
   const [watching, setWatching] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [quality, setQuality] = useState<"thumb" | "full">("thumb");
+  const [broadcastBusy, setBroadcastBusy] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -94,7 +104,7 @@ export default function ScreenThumbnail({ classroomId, device }: { classroomId: 
     setBusy(true);
     setError("");
     try {
-      const pc = new RTCPeerConnection({ iceServers: [] });
+      const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
       pcRef.current = pc;
       pc.addTransceiver("video", { direction: "recvonly" });
       pc.ontrack = (event) => {
@@ -136,6 +146,19 @@ export default function ScreenThumbnail({ classroomId, device }: { classroomId: 
     }
   }, [classroomId, device.id, quality]);
 
+  const toggleBroadcast = useCallback(async () => {
+    setBroadcastBusy(true);
+    setError("");
+    try {
+      if (device.broadcast_id) await api.endBroadcast(classroomId, device.id, device.broadcast_id);
+      else await api.startBroadcast(classroomId, device.id);
+    } catch (reason) {
+      setError(String(reason));
+    } finally {
+      setBroadcastBusy(false);
+    }
+  }, [classroomId, device.id, device.broadcast_id]);
+
   const watchedByOther = device.watched_by !== null;
   const video = <video ref={videoRef} autoPlay muted playsInline />;
 
@@ -147,6 +170,9 @@ export default function ScreenThumbnail({ classroomId, device }: { classroomId: 
             {quality !== "full" && video}
             <div className="thumb-controls">
               <button className="thumb-quality" onClick={() => void toggleQuality()}>Full view</button>
+              <button className="thumb-quality" disabled={broadcastBusy} onClick={() => void toggleBroadcast()}>
+                {device.broadcast_id ? "Stop broadcasting" : "Broadcast to class"}
+              </button>
               <button className="thumb-stop" onClick={() => teardown(true)}>Stop</button>
             </div>
           </>
@@ -174,6 +200,9 @@ export default function ScreenThumbnail({ classroomId, device }: { classroomId: 
             <header>
               <strong>{device.name}</strong>
               <div>
+                <button className="ghost" disabled={broadcastBusy} onClick={() => void toggleBroadcast()}>
+                  {device.broadcast_id ? "Stop broadcasting" : "Broadcast to class"}
+                </button>
                 <button className="ghost" onClick={() => void toggleQuality()}>Back to thumbnail</button>
                 <button className="danger" onClick={() => teardown(true)}>Stop</button>
               </div>

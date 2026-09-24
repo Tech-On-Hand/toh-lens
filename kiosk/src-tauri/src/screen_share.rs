@@ -16,6 +16,7 @@ use webrtc::api::interceptor_registry::register_default_interceptors;
 use webrtc::api::media_engine::{MediaEngine, MIME_TYPE_H264};
 use webrtc::api::APIBuilder;
 use webrtc::ice_transport::ice_candidate::RTCIceCandidateInit;
+use webrtc::ice_transport::ice_server::RTCIceServer;
 use webrtc::interceptor::registry::Registry;
 use webrtc::media::Sample;
 use webrtc::peer_connection::configuration::RTCConfiguration;
@@ -25,6 +26,7 @@ use webrtc::rtp_transceiver::rtp_codec::RTCRtpCodecCapability;
 use webrtc::track::track_local::track_local_static_sample::TrackLocalStaticSample;
 use windows_capture::capture::{CaptureControl, Context, GraphicsCaptureApiHandler};
 use windows_capture::frame::Frame;
+use windows_capture::graphics_capture_api::GraphicsCaptureApi;
 use windows_capture::graphics_capture_api::InternalCaptureControl;
 use windows_capture::monitor::Monitor;
 use windows_capture::settings::{
@@ -138,26 +140,45 @@ impl GraphicsCaptureApiHandler for ScreenCapturer {
     }
 }
 
-async fn new_peer_connection() -> Result<Arc<RTCPeerConnection>, String> {
+pub(crate) async fn new_peer_connection() -> Result<Arc<RTCPeerConnection>, String> {
     let mut media_engine = MediaEngine::default();
     media_engine.register_default_codecs().map_err(|e| e.to_string())?;
     let mut registry = Registry::new();
     registry = register_default_interceptors(registry, &mut media_engine).map_err(|e| e.to_string())?;
     let api = APIBuilder::new().with_media_engine(media_engine).with_interceptor_registry(registry).build();
 
-    // Empty ice_servers: no STUN/TURN. Proven to connect directly on a shared
-    // classroom LAN in spikes/native-capture; a network that needs a relay is a
-    // known, documented gap (see toh-klas-contracts.md), not a silent failure mode —
-    // the connection simply never reaches `connected` and the teacher sees "offline".
-    api.new_peer_connection(RTCConfiguration::default()).await.map(Arc::new).map_err(|e| e.to_string())
+    // A STUN server only ever answers "what's your real address" once, during
+    // setup — it never carries media, so this is still a direct P2P connection,
+    // not a relay like TURN (still absent; see toh-klas-contracts.md). It's
+    // needed because a browser-side peer's local candidate is an mDNS-obfuscated
+    // hostname (Chromium's privacy feature) that WebView2 won't disable via the
+    // usual --force-webrtc-ip-handling-policy flag; STUN gives the ICE agent a
+    // second, real-IP candidate to fall back to when mDNS resolution doesn't
+    // reach across two separate machines. A network with no outbound access to
+    // it is a known gap — the connection simply never reaches "connected."
+    let config = RTCConfiguration {
+        ice_servers: vec![RTCIceServer { urls: vec!["stun:stun.l.google.com:19302".to_string()], ..Default::default() }],
+        ..Default::default()
+    };
+    api.new_peer_connection(config).await.map(Arc::new).map_err(|e| e.to_string())
 }
 
 fn start_capture(track: Arc<TrackLocalStaticSample>, target: EncodeTarget) -> Result<Capture, String> {
     let monitor = Monitor::primary().map_err(|e| e.to_string())?;
+    // Hiding the yellow capture border needs `GraphicsCaptureSession.IsBorderRequired`,
+    // which only exists on newer Windows builds; requesting it where it's absent makes
+    // the Graphics Capture API reject the whole session outright (see the kiosk log:
+    // "Toggling the capture border is not supported by the Graphics Capture API on
+    // this platform"), so this only asks for it where it's actually supported.
+    let border = if GraphicsCaptureApi::is_border_settings_supported().unwrap_or(false) {
+        DrawBorderSettings::WithoutBorder
+    } else {
+        DrawBorderSettings::Default
+    };
     let settings = Settings::new(
         monitor,
         CursorCaptureSettings::WithCursor,
-        DrawBorderSettings::WithoutBorder,
+        border,
         SecondaryWindowSettings::Default,
         MinimumUpdateIntervalSettings::Default,
         DirtyRegionSettings::Default,
@@ -170,7 +191,7 @@ fn start_capture(track: Arc<TrackLocalStaticSample>, target: EncodeTarget) -> Re
 /// `webrtc-rs`'s answer SDP uses bare `\n` and drops the terminator on the last
 /// line; Chrome's parser requires RFC 4566's CRLF throughout, including after
 /// the final line, and rejects the whole description otherwise.
-fn normalize_sdp_line_endings(sdp: &str) -> String {
+pub(crate) fn normalize_sdp_line_endings(sdp: &str) -> String {
     let mut normalized = sdp.replace("\r\n", "\n").replace('\n', "\r\n");
     if !normalized.ends_with("\r\n") {
         normalized.push_str("\r\n");
@@ -258,7 +279,13 @@ impl ScreenShare {
         }
         let _ = crate::api_client::answer_screen_session(&reqwest::Client::new(), base_url, token, &session.id, &answer_json).await;
 
-        let capture = start_capture(track.clone(), target_for(&session.quality)).ok();
+        let capture = match start_capture(track.clone(), target_for(&session.quality)) {
+            Ok(capture) => Some(capture),
+            Err(err) => {
+                log::warn!("screen-share: initial capture failed at {} quality: {err}", session.quality);
+                None
+            }
+        };
         *self.watch.lock().unwrap() = Some(Watch {
             session_id: session.id.clone(),
             peer_connection,
@@ -283,8 +310,31 @@ impl ScreenShare {
         if let Some(capture) = watch.capture.take() {
             let _ = capture.stop();
         }
-        watch.capture = start_capture(watch.track.clone(), target_for(&session.quality)).ok();
+        watch.capture = match start_capture(watch.track.clone(), target_for(&session.quality)) {
+            Ok(capture) => Some(capture),
+            Err(err) => {
+                log::warn!("screen-share: quality switch to {} failed: {err}", session.quality);
+                None
+            }
+        };
         watch.quality = session.quality.clone();
+    }
+
+    /// Retries the capture if the last attempt (initial start or a quality switch)
+    /// failed and left the watch with no running capture — otherwise the peer
+    /// connection stays up and looks healthy while no frames are ever sent again.
+    /// Runs every tick so a transient failure (e.g. the previous capture session
+    /// not yet fully released) clears itself within a few seconds.
+    fn ensure_capture(&self) {
+        let mut guard = self.watch.lock().unwrap();
+        let Some(watch) = guard.as_mut() else { return };
+        if watch.capture.is_some() {
+            return;
+        }
+        match start_capture(watch.track.clone(), target_for(&watch.quality)) {
+            Ok(capture) => watch.capture = Some(capture),
+            Err(err) => log::warn!("screen-share: capture restart failed at {} quality: {err}", watch.quality),
+        }
     }
 
     /// Applies viewer candidates that arrived since our last poll of this same session.
@@ -324,6 +374,7 @@ impl ScreenShare {
         if self.current_session_id().as_deref() == Some(session.id.as_str()) {
             self.apply_candidates(&session).await;
             self.apply_quality(&session);
+            self.ensure_capture();
         } else {
             self.teardown().await;
             self.begin(&base_url, &token, &session).await;

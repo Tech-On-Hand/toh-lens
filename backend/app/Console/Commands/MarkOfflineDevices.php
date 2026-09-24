@@ -23,6 +23,7 @@ class MarkOfflineDevices extends Command
             ->eachById(function (Computer $device) {
                 $device->update(['presence_status' => 'offline']);
                 $device->endCurrentScreenSession('device_offline');
+                $device->endCurrentSourceBroadcast('source_offline');
                 DevicePresenceChanged::dispatch($device, 'offline');
             });
 

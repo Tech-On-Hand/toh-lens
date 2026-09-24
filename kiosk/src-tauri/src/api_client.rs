@@ -322,3 +322,102 @@ pub async fn post_screen_session_candidate(
         Err(format!("server returned {}", response.status()))
     }
 }
+
+// --- teacher-broadcast: receiving-kiosk (target) role, used by the kiosk's
+// own frontend via Tauri commands (see commands.rs) — this device plays the
+// same "viewer" role a teacher plays watching a device, just kiosk-to-kiosk.
+
+pub async fn fetch_broadcast_status(http: &reqwest::Client, base_url: &str, token: &str, after: i64) -> Result<serde_json::Value, String> {
+    let response = http
+        .get(join_url(base_url, "api/v1/device/broadcasts/current"))
+        .bearer_auth(token)
+        .query(&[("after", after)])
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !response.status().is_success() {
+        return Err(format!("server returned {}", response.status()));
+    }
+    response
+        .json::<ApiEnvelope<serde_json::Value>>()
+        .await
+        .map_err(|e| e.to_string())?
+        .data
+        .ok_or_else(|| "The server returned an invalid broadcast response.".into())
+}
+
+pub async fn join_broadcast(http: &reqwest::Client, base_url: &str, token: &str, broadcast_id: &str, offer: &serde_json::Value) -> Result<serde_json::Value, String> {
+    let response = http
+        .post(join_url(base_url, &format!("api/v1/device/broadcasts/{broadcast_id}/join")))
+        .bearer_auth(token)
+        .json(&serde_json::json!({ "offer": offer }))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !response.status().is_success() {
+        return Err(format!("server returned {}", response.status()));
+    }
+    response
+        .json::<ApiEnvelope<serde_json::Value>>()
+        .await
+        .map_err(|e| e.to_string())?
+        .data
+        .ok_or_else(|| "The server returned an invalid join response.".into())
+}
+
+/// Shared by both sides of a broadcast target connection: which one posted a
+/// given candidate is inferred server-side from which device is authenticated.
+pub async fn post_broadcast_target_candidate(http: &reqwest::Client, base_url: &str, token: &str, target_id: &str, candidate: &serde_json::Value) -> Result<(), String> {
+    let response = http
+        .post(join_url(base_url, &format!("api/v1/device/broadcasts/targets/{target_id}/candidates")))
+        .bearer_auth(token)
+        .json(&serde_json::json!({ "candidates": [candidate] }))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if response.status().is_success() {
+        Ok(())
+    } else {
+        Err(format!("server returned {}", response.status()))
+    }
+}
+
+// --- teacher-broadcast: source-kiosk role, used internally by screen_broadcast.rs.
+
+pub async fn fetch_outgoing_broadcast(http: &reqwest::Client, base_url: &str, token: &str) -> Result<serde_json::Value, String> {
+    let response = http
+        .get(join_url(base_url, "api/v1/device/broadcasts/outgoing"))
+        .bearer_auth(token)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !response.status().is_success() {
+        return Err(format!("server returned {}", response.status()));
+    }
+    response
+        .json::<ApiEnvelope<serde_json::Value>>()
+        .await
+        .map_err(|e| e.to_string())?
+        .data
+        .ok_or_else(|| "The server returned an invalid broadcast response.".into())
+}
+
+pub async fn answer_broadcast_target(http: &reqwest::Client, base_url: &str, token: &str, target_id: &str, answer: &serde_json::Value) -> Result<(), String> {
+    let response = http
+        .patch(join_url(base_url, &format!("api/v1/device/broadcasts/targets/{target_id}")))
+        .bearer_auth(token)
+        .json(&serde_json::json!({ "answer": answer }))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if response.status().is_success() {
+        Ok(())
+    } else {
+        Err(format!("server returned {}", response.status()))
+    }
+}

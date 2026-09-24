@@ -52,7 +52,8 @@ class TeacherClassroomController extends ApiController
                 ->with('student:id,full_name,admission_number')
                 ->latest('login_time'),
                 'browserTabs' => fn ($query) => $query->where('is_active', true)->latest('observed_at'),
-                'screenSessions' => fn ($query) => $query->current()->with('viewer:id,name')->latest('id')])
+                'screenSessions' => fn ($query) => $query->current()->with('viewer:id,name')->latest('id'),
+                'sourceBroadcasts' => fn ($query) => $query->current()->latest('id')])
             ->orderBy('name')
             ->get();
 
@@ -77,6 +78,7 @@ class TeacherClassroomController extends ApiController
                 'started_at' => $device->loginSessions->first()->login_time->toIso8601String(),
             ] : null,
             'watched_by' => $device->screenSessions->first()?->viewer_id === $user->id ? null : $device->screenSessions->first()?->viewer?->name,
+            'broadcast_id' => $device->sourceBroadcasts->first()?->uuid,
         ]));
     }
 

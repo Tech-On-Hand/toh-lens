@@ -14,6 +14,7 @@ pub struct AppState {
     pub desktop_child: Arc<Mutex<Option<Child>>>,
     pub bridge: crate::browser_bridge::Bridge,
     pub screen_share: crate::screen_share::ScreenShare,
+    pub screen_broadcast_source: crate::screen_broadcast::ScreenBroadcastSource,
 }
 
 impl AppState {
@@ -29,6 +30,7 @@ impl AppState {
             desktop_child: Arc::new(Mutex::new(None)),
             bridge: crate::browser_bridge::Bridge::default(),
             screen_share: crate::screen_share::ScreenShare::default(),
+            screen_broadcast_source: crate::screen_broadcast::ScreenBroadcastSource::default(),
         }
     }
 }

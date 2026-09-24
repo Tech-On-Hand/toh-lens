@@ -6,6 +6,7 @@ mod db;
 mod mf;
 mod models;
 mod policy_sync;
+mod screen_broadcast;
 mod screen_share;
 mod shell_handoff;
 mod state;
@@ -21,6 +22,15 @@ const BROWSER_TICK: Duration = Duration::from_secs(3);
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let mut builder = tauri::Builder::default()
+        .plugin(
+            // Warn-and-above only: dependencies like webrtc/reqwest log through
+            // this same facade at trace/debug volume, which would blow past the
+            // rotation size and bury our own warnings before anyone reads them.
+            tauri_plugin_log::Builder::new()
+                .level(log::LevelFilter::Warn)
+                .max_file_size(5_000_000)
+                .build(),
+        )
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let app_dir = app.path().app_data_dir().expect("failed to resolve app data dir");
@@ -44,6 +54,7 @@ pub fn run() {
                     interval.tick().await;
                     browser_bridge::tick(&bridge_state, tick_number).await;
                     bridge_state.screen_share.tick(&bridge_state).await;
+                    bridge_state.screen_broadcast_source.tick(&bridge_state).await;
                     tick_number += 1;
                 }
             });
@@ -75,6 +86,9 @@ pub fn run() {
             commands::sync_now,
             commands::get_sync_status,
             commands::get_screen_watch_status,
+            commands::get_broadcast_status,
+            commands::join_broadcast,
+            commands::post_broadcast_candidate,
             commands::seed_demo_config,
             commands::seed_demo_roster,
         ]);
@@ -94,6 +108,9 @@ pub fn run() {
             commands::sync_now,
             commands::get_sync_status,
             commands::get_screen_watch_status,
+            commands::get_broadcast_status,
+            commands::join_broadcast,
+            commands::post_broadcast_candidate,
         ]);
     }
 

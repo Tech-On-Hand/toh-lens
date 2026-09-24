@@ -72,6 +72,39 @@ class Computer extends Model
         $this->currentScreenSession()?->update(['status' => 'ended', 'ended_at' => now(), 'end_reason' => $reason]);
     }
 
+    /** Broadcasts this device is the source of (its screen shown to the classroom). */
+    public function sourceBroadcasts(): HasMany
+    {
+        return $this->hasMany(ScreenBroadcast::class, 'source_computer_id');
+    }
+
+    public function currentSourceBroadcast(): ?ScreenBroadcast
+    {
+        return $this->sourceBroadcasts()->current()->latest('id')->first();
+    }
+
+    /** Ends the broadcast this device is the source of, and every current target of it. */
+    public function endCurrentSourceBroadcast(string $reason): void
+    {
+        $broadcast = $this->currentSourceBroadcast();
+        if (! $broadcast) {
+            return;
+        }
+        $broadcast->targets()->current()->update(['status' => 'ended', 'ended_at' => now(), 'end_reason' => $reason]);
+        $broadcast->update(['status' => 'ended', 'ended_at' => now(), 'end_reason' => $reason]);
+    }
+
+    /** Broadcasts this device is receiving, as a target. */
+    public function broadcastTargets(): HasMany
+    {
+        return $this->hasMany(ScreenBroadcastTarget::class, 'target_computer_id');
+    }
+
+    public function currentBroadcastTarget(): ?ScreenBroadcastTarget
+    {
+        return $this->broadcastTargets()->current()->latest('id')->first();
+    }
+
     public function activeSession(): ?LoginSession
     {
         return $this->loginSessions()->where('status', 'active')->latest('login_time')->first();

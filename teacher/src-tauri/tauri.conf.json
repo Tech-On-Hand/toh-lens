@@ -10,7 +10,10 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [{ "title": "TOH Klas Teacher", "width": 1280, "height": 820, "minWidth": 960, "minHeight": 640 }],
+    "windows": [{
+      "title": "TOH Klas Teacher", "width": 1280, "height": 820, "minWidth": 960, "minHeight": 640,
+      "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --force-webrtc-ip-handling-policy=default_public_and_private_interfaces"
+    }],
     "security": { "csp": null }
   },
   "bundle": {

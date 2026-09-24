@@ -26,6 +26,7 @@ export interface Device {
     started_at: string;
   } | null;
   watched_by: string | null;
+  broadcast_id: string | null;
 }
 
 export interface ScreenSessionSummary {

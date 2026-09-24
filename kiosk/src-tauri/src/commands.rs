@@ -212,6 +212,40 @@ pub fn get_screen_watch_status(state: State<AppState>) -> Result<bool, String> {
     Ok(state.screen_share.is_watching())
 }
 
+/// Every broadcast command needs the same pair; `screen_share.rs`'s own tick
+/// loop reads these itself, but these three are invoked directly from the
+/// frontend's own WebRTC code, which has no other way to reach them.
+fn broadcast_credentials(state: &AppState) -> Result<(String, String), String> {
+    let base_url = {
+        let conn = state.db.lock().unwrap();
+        config_repo::get_api_base_url(&conn).map_err(|e| e.to_string())?
+    };
+    let base_url = base_url.ok_or_else(|| NOT_CONFIGURED_ERROR.to_string())?;
+    let token = crate::credential_store::get_token().ok_or_else(|| NOT_CONFIGURED_ERROR.to_string())?;
+    Ok((base_url, token))
+}
+
+/// Polled by the kiosk's own broadcast-viewer code (a receiving kiosk plays
+/// the same role the Teacher app plays watching a device) to learn whether
+/// its classroom is currently broadcasting, and its own join's state.
+#[tauri::command]
+pub async fn get_broadcast_status(state: State<'_, AppState>, after: i64) -> Result<serde_json::Value, String> {
+    let (base_url, token) = broadcast_credentials(&state)?;
+    crate::api_client::fetch_broadcast_status(&state.http, &base_url, &token, after).await
+}
+
+#[tauri::command]
+pub async fn join_broadcast(state: State<'_, AppState>, broadcast_id: String, offer: serde_json::Value) -> Result<serde_json::Value, String> {
+    let (base_url, token) = broadcast_credentials(&state)?;
+    crate::api_client::join_broadcast(&state.http, &base_url, &token, &broadcast_id, &offer).await
+}
+
+#[tauri::command]
+pub async fn post_broadcast_candidate(state: State<'_, AppState>, target_id: String, candidate: serde_json::Value) -> Result<(), String> {
+    let (base_url, token) = broadcast_credentials(&state)?;
+    crate::api_client::post_broadcast_target_candidate(&state.http, &base_url, &token, &target_id, &candidate).await
+}
+
 #[tauri::command]
 pub async fn get_sync_status(state: State<'_, AppState>) -> Result<SyncStatus, String> {
     let base_url = {
