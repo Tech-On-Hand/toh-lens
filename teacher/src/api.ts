@@ -2,10 +2,14 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   BrowserTab,
   Classroom,
+  ChatMessage,
+  ChatThread,
   ClassroomPolicy,
+  Announcement,
   CommandSummary,
   Device,
   FocusSession,
+  HelpRequest,
   ScreenSessionPoll,
   ScreenSessionSummary,
   TeacherSession,
@@ -45,3 +49,12 @@ export const startBroadcast = (classroomId: number, deviceId: number) =>
   invoke<{ id: string }>("start_broadcast", { classroomId, deviceId });
 export const endBroadcast = (classroomId: number, deviceId: number, broadcastId: string) =>
   invoke<unknown>("end_broadcast", { classroomId, deviceId, broadcastId });
+export const listAnnouncements = (classroomId: number) => invoke<Announcement[]>("list_announcements", { classroomId });
+export const sendAnnouncement = (classroomId: number, message: string, durationMinutes: number) =>
+  invoke<Announcement>("send_announcement", { classroomId, message, durationMinutes });
+export const resolveHelpRequest = (classroomId: number, requestId: string) =>
+  invoke<HelpRequest>("resolve_help_request", { classroomId, requestId });
+export const listChatMessages = (classroomId: number, deviceId: number) =>
+  invoke<ChatThread>("list_chat_messages", { classroomId, deviceId });
+export const sendChatMessage = (classroomId: number, deviceId: number, messageId: string, body: string) =>
+  invoke<ChatMessage>("send_chat_message", { classroomId, deviceId, messageId, body });

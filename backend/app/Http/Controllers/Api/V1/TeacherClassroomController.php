@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Models\ChatMessage;
 use App\Models\Classroom;
 use App\Models\Computer;
 use App\Models\User;
@@ -53,9 +54,17 @@ class TeacherClassroomController extends ApiController
                 ->latest('login_time'),
                 'browserTabs' => fn ($query) => $query->where('is_active', true)->latest('observed_at'),
                 'screenSessions' => fn ($query) => $query->current()->with('viewer:id,name')->latest('id'),
-                'sourceBroadcasts' => fn ($query) => $query->current()->latest('id')])
+                'sourceBroadcasts' => fn ($query) => $query->current()->latest('id'),
+                'helpRequests' => fn ($query) => $query->open()->latest('id')])
             ->orderBy('name')
             ->get();
+
+        // Messages a student has sent that no teacher has opened yet, per open conversation.
+        $unread = ChatMessage::query()
+            ->whereIn('login_session_id', $devices->map(fn (Computer $device) => $device->loginSessions->first()?->id)->filter()->values())
+            ->where('direction', 'to_teacher')->whereNull('read_at')
+            ->selectRaw('login_session_id, count(*) as total')->groupBy('login_session_id')
+            ->pluck('total', 'login_session_id');
 
         return $this->success($devices->map(fn (Computer $device) => [
             'id' => $device->id,
@@ -79,6 +88,8 @@ class TeacherClassroomController extends ApiController
             ] : null,
             'watched_by' => $device->screenSessions->first()?->viewer_id === $user->id ? null : $device->screenSessions->first()?->viewer?->name,
             'broadcast_id' => $device->sourceBroadcasts->first()?->uuid,
+            'help_request' => $device->helpRequests->first()?->toSummary(),
+            'unread_messages' => (int) ($unread[$device->loginSessions->first()?->id] ?? 0),
         ]));
     }
 

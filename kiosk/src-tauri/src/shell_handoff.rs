@@ -62,6 +62,40 @@ pub fn reclaim_desktop(app: &AppHandle, state: &AppState) {
     }
 }
 
+/// Brings the kiosk window back over the (handed-off) desktop, e.g. to show a
+/// teacher's announcement. The window is fullscreen and always-on-top, so the
+/// student has to acknowledge it before carrying on.
+#[cfg(not(debug_assertions))]
+pub fn present_window(app: &AppHandle) {
+    use tauri::Manager;
+
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
+/// Puts the desktop back after `present_window` — but only if a student is
+/// logged in (the desktop is currently handed off). With nobody logged in the
+/// kiosk window IS the screen and must stay up.
+#[cfg(not(debug_assertions))]
+pub fn release_window(app: &AppHandle, state: &AppState) {
+    use tauri::Manager;
+
+    if state.desktop_child.lock().unwrap().is_none() {
+        return;
+    }
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.hide();
+    }
+}
+
+#[cfg(debug_assertions)]
+pub fn present_window(_app: &AppHandle) {}
+
+#[cfg(debug_assertions)]
+pub fn release_window(_app: &AppHandle, _state: &AppState) {}
+
 #[cfg(debug_assertions)]
 pub fn launch_desktop(_app: &AppHandle, _state: &AppState) {}
 

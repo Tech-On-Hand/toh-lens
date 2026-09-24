@@ -1,7 +1,7 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ScreenWatchIndicator } from "../components/ScreenWatchIndicator";
 import { SyncStatusBadge } from "../components/SyncStatusBadge";
-import { commandErrorMessage, recordLogout } from "../lib/commands";
+import { commandErrorMessage, hideHelpWidget, recordLogout, showHelpWidget } from "../lib/commands";
 import { useIdleTimeout } from "../lib/useIdleTimeout";
 import type { LoginSessionRecord } from "../types";
 
@@ -32,6 +32,13 @@ export function LoggedInScreen({ session, onLogout }: LoggedInScreenProps) {
       setIsLoggingOut(false);
     }
   }, [session.session_uuid, onLogout]);
+
+  // The kiosk window is hidden behind the desktop while a student is logged in,
+  // so the way to reach the teacher is a small floating button instead.
+  useEffect(() => {
+    void showHelpWidget().catch(() => {});
+    return () => void hideHelpWidget().catch(() => {});
+  }, []);
 
   const { isWarning, secondsRemaining } = useIdleTimeout({
     idleMs: IDLE_TIMEOUT_MS,

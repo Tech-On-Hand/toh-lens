@@ -12,6 +12,8 @@ use App\Http\Controllers\Api\V1\AuthController as V1AuthController;
 use App\Http\Controllers\Api\V1\DeviceBroadcastController;
 use App\Http\Controllers\Api\V1\DeviceBrowserController;
 use App\Http\Controllers\Api\V1\DeviceCommandController;
+use App\Http\Controllers\Api\V1\DeviceChatController;
+use App\Http\Controllers\Api\V1\DeviceCommunicationController;
 use App\Http\Controllers\Api\V1\DeviceController as V1DeviceController;
 use App\Http\Controllers\Api\V1\DeviceEnrollmentController;
 use App\Http\Controllers\Api\V1\DeviceRosterController;
@@ -20,7 +22,9 @@ use App\Http\Controllers\Api\V1\DeviceSessionController;
 use App\Http\Controllers\Api\V1\InvitationAcceptanceController;
 use App\Http\Controllers\Api\V1\TeacherBroadcastController;
 use App\Http\Controllers\Api\V1\TeacherClassroomController;
+use App\Http\Controllers\Api\V1\TeacherChatController;
 use App\Http\Controllers\Api\V1\TeacherCommandController;
+use App\Http\Controllers\Api\V1\TeacherCommunicationController;
 use App\Http\Controllers\Api\V1\TeacherScreenSessionController;
 use App\Http\Controllers\Api\V1\TeacherPolicyController;
 use App\Http\Controllers\Api\V1\DevicePolicyController;
@@ -57,6 +61,14 @@ Route::prefix('v1')->group(function () {
         Route::get('broadcasts/outgoing', [DeviceBroadcastController::class, 'outgoing']);
         Route::patch('broadcasts/targets/{uuid}', [DeviceBroadcastController::class, 'answer']);
         Route::post('broadcasts/targets/{uuid}/candidates', [DeviceBroadcastController::class, 'addCandidates']);
+        Route::get('announcements', [DeviceCommunicationController::class, 'announcements']);
+        Route::post('announcements/{uuid}/read', [DeviceCommunicationController::class, 'markAnnouncementRead']);
+        Route::get('help-requests/current', [DeviceCommunicationController::class, 'currentHelpRequest']);
+        Route::post('help-requests', [DeviceCommunicationController::class, 'requestHelp']);
+        Route::post('help-requests/{uuid}/cancel', [DeviceCommunicationController::class, 'cancelHelpRequest']);
+        Route::get('messages', [DeviceChatController::class, 'index']);
+        Route::post('messages', [DeviceChatController::class, 'store']);
+        Route::post('messages/read', [DeviceChatController::class, 'markRead']);
     });
 
     Route::middleware(['auth:sanctum', 'teacher.token'])->group(function () {
@@ -73,6 +85,14 @@ Route::prefix('v1')->group(function () {
         Route::post('teacher/classrooms/{classroom}/devices/{device}/screen-sessions/{uuid}/end', [TeacherScreenSessionController::class, 'end']);
         Route::post('teacher/classrooms/{classroom}/devices/{device}/broadcast', [TeacherBroadcastController::class, 'store'])->middleware('throttle:30,1');
         Route::post('teacher/classrooms/{classroom}/devices/{device}/broadcast/{uuid}/end', [TeacherBroadcastController::class, 'end']);
+
+        Route::get('teacher/classrooms/{classroom}/devices/{device}/messages', [TeacherChatController::class, 'index']);
+        Route::post('teacher/classrooms/{classroom}/devices/{device}/messages', [TeacherChatController::class, 'store'])->middleware('throttle:120,1');
+
+        Route::get('teacher/classrooms/{classroom}/announcements',[TeacherCommunicationController::class, 'announcements']);
+        Route::post('teacher/classrooms/{classroom}/announcements', [TeacherCommunicationController::class, 'sendAnnouncement'])->middleware('throttle:30,1');
+        Route::get('teacher/classrooms/{classroom}/help-requests', [TeacherCommunicationController::class, 'helpRequests']);
+        Route::post('teacher/classrooms/{classroom}/help-requests/{uuid}/resolve', [TeacherCommunicationController::class, 'resolveHelpRequest']);
 
         Route::get('teacher/classrooms/{classroom}/policy', [TeacherPolicyController::class, 'show']);
         Route::post('teacher/classrooms/{classroom}/focus-sessions', [TeacherPolicyController::class, 'startFocus'])->middleware('throttle:30,1');

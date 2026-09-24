@@ -253,6 +253,33 @@ async fn end_screen_session(state: State<'_, AppState>, classroom_id: i64, devic
 }
 
 #[tauri::command]
+async fn list_chat_messages(state: State<'_, AppState>, classroom_id: i64, device_id: i64) -> Result<serde_json::Value, String> {
+    authenticated_get(&state, &format!("api/v1/teacher/classrooms/{classroom_id}/devices/{device_id}/messages")).await
+}
+
+#[tauri::command]
+async fn send_chat_message(state: State<'_, AppState>, classroom_id: i64, device_id: i64, message_id: String, body: String) -> Result<serde_json::Value, String> {
+    let payload = serde_json::json!({ "uuid": message_id, "body": body });
+    authenticated_send(&state, reqwest::Method::POST, &format!("api/v1/teacher/classrooms/{classroom_id}/devices/{device_id}/messages"), Some(payload)).await
+}
+
+#[tauri::command]
+async fn list_announcements(state: State<'_, AppState>, classroom_id: i64) -> Result<serde_json::Value, String> {
+    authenticated_get(&state, &format!("api/v1/teacher/classrooms/{classroom_id}/announcements")).await
+}
+
+#[tauri::command]
+async fn send_announcement(state: State<'_, AppState>, classroom_id: i64, message: String, duration_minutes: u32) -> Result<serde_json::Value, String> {
+    let body = serde_json::json!({ "message": message, "duration_minutes": duration_minutes });
+    authenticated_send(&state, reqwest::Method::POST, &format!("api/v1/teacher/classrooms/{classroom_id}/announcements"), Some(body)).await
+}
+
+#[tauri::command]
+async fn resolve_help_request(state: State<'_, AppState>, classroom_id: i64, request_id: String) -> Result<serde_json::Value, String> {
+    authenticated_send(&state, reqwest::Method::POST, &format!("api/v1/teacher/classrooms/{classroom_id}/help-requests/{request_id}/resolve"), None).await
+}
+
+#[tauri::command]
 async fn start_broadcast(state: State<'_, AppState>, classroom_id: i64, device_id: i64) -> Result<serde_json::Value, String> {
     authenticated_send(
         &state, reqwest::Method::POST,
@@ -335,7 +362,7 @@ pub fn run() {
             session: Arc::new(Mutex::new(None)),
             realtime_generation: Arc::new(AtomicU64::new(0)),
         })
-        .invoke_handler(tauri::generate_handler![login, restore_session, logout, list_classrooms, list_devices, list_browser_tabs, send_command, get_command, get_policy, start_focus, end_focus, add_block_rule, remove_block_rule, revoke_device, start_realtime, start_screen_session, poll_screen_session, send_screen_candidates, set_screen_quality, end_screen_session, start_broadcast, end_broadcast])
+        .invoke_handler(tauri::generate_handler![login, restore_session, logout, list_classrooms, list_devices, list_browser_tabs, send_command, get_command, get_policy, start_focus, end_focus, add_block_rule, remove_block_rule, revoke_device, start_realtime, start_screen_session, poll_screen_session, send_screen_candidates, set_screen_quality, end_screen_session, start_broadcast, end_broadcast, list_announcements, send_announcement, resolve_help_request, list_chat_messages, send_chat_message])
         .run(tauri::generate_context!())
         .expect("error while running TOH Klas Teacher");
 }

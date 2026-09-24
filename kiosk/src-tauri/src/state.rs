@@ -15,6 +15,7 @@ pub struct AppState {
     pub bridge: crate::browser_bridge::Bridge,
     pub screen_share: crate::screen_share::ScreenShare,
     pub screen_broadcast_source: crate::screen_broadcast::ScreenBroadcastSource,
+    pub outbox: crate::outbox::Outbox,
 }
 
 impl AppState {
@@ -31,6 +32,7 @@ impl AppState {
             bridge: crate::browser_bridge::Bridge::default(),
             screen_share: crate::screen_share::ScreenShare::default(),
             screen_broadcast_source: crate::screen_broadcast::ScreenBroadcastSource::default(),
+            outbox: crate::outbox::Outbox::default(),
         }
     }
 }

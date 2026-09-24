@@ -1,4 +1,4 @@
-use crate::db::{config_repo, roster_repo, session_repo};
+use crate::db::{config_repo, outbox_repo, roster_repo, session_repo};
 use crate::models::{AppConfig, LoginSessionRecord, RosterStatus, StudentSummary, SyncResult, SyncStatus};
 use crate::state::AppState;
 use tauri::State;
@@ -212,10 +212,10 @@ pub fn get_screen_watch_status(state: State<AppState>) -> Result<bool, String> {
     Ok(state.screen_share.is_watching())
 }
 
-/// Every broadcast command needs the same pair; `screen_share.rs`'s own tick
-/// loop reads these itself, but these three are invoked directly from the
-/// frontend's own WebRTC code, which has no other way to reach them.
-fn broadcast_credentials(state: &AppState) -> Result<(String, String), String> {
+/// The server address and device token. `screen_share.rs`'s own tick loop reads
+/// these itself; commands invoked directly from the frontend (broadcast viewing,
+/// announcements, help requests) have no other way to reach them.
+fn device_credentials(state: &AppState) -> Result<(String, String), String> {
     let base_url = {
         let conn = state.db.lock().unwrap();
         config_repo::get_api_base_url(&conn).map_err(|e| e.to_string())?
@@ -230,20 +230,188 @@ fn broadcast_credentials(state: &AppState) -> Result<(String, String), String> {
 /// its classroom is currently broadcasting, and its own join's state.
 #[tauri::command]
 pub async fn get_broadcast_status(state: State<'_, AppState>, after: i64) -> Result<serde_json::Value, String> {
-    let (base_url, token) = broadcast_credentials(&state)?;
+    let (base_url, token) = device_credentials(&state)?;
     crate::api_client::fetch_broadcast_status(&state.http, &base_url, &token, after).await
 }
 
 #[tauri::command]
 pub async fn join_broadcast(state: State<'_, AppState>, broadcast_id: String, offer: serde_json::Value) -> Result<serde_json::Value, String> {
-    let (base_url, token) = broadcast_credentials(&state)?;
+    let (base_url, token) = device_credentials(&state)?;
     crate::api_client::join_broadcast(&state.http, &base_url, &token, &broadcast_id, &offer).await
 }
 
 #[tauri::command]
 pub async fn post_broadcast_candidate(state: State<'_, AppState>, target_id: String, candidate: serde_json::Value) -> Result<(), String> {
-    let (base_url, token) = broadcast_credentials(&state)?;
+    let (base_url, token) = device_credentials(&state)?;
     crate::api_client::post_broadcast_target_candidate(&state.http, &base_url, &token, &target_id, &candidate).await
+}
+
+/// The login session currently open on this computer, if any.
+fn open_session_uuid(state: &AppState) -> Option<String> {
+    let conn = state.db.lock().unwrap();
+    let config = config_repo::get_config(&conn).ok().flatten()?;
+    session_repo::find_open_session(&conn, config.computer_id).ok().flatten().map(|session| session.session_uuid)
+}
+
+/// Unread announcements. Ones the student already dismissed but whose receipt has
+/// not reached the server yet are left out, so they do not reappear on reconnect.
+#[tauri::command]
+pub async fn get_announcements(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
+    let (base_url, token) = device_credentials(&state)?;
+    let mut announcements = crate::api_client::device_json(&state.http, &base_url, &token, reqwest::Method::GET, "announcements", None).await?;
+
+    let dismissed: std::collections::HashSet<String> = {
+        let conn = state.db.lock().unwrap();
+        outbox_repo::of_kind(&conn, outbox_repo::ANNOUNCEMENT_READ)
+            .map_err(|e| e.to_string())?
+            .into_iter()
+            .filter_map(|entry| entry.key)
+            .collect()
+    };
+    if let Some(list) = announcements.as_array_mut() {
+        list.retain(|announcement| announcement["id"].as_str().map_or(true, |id| !dismissed.contains(id)));
+    }
+    Ok(announcements)
+}
+
+/// Queued, not sent inline: works with no connection and survives a restart.
+#[tauri::command]
+pub fn mark_announcement_read(state: State<AppState>, announcement_id: String) -> Result<(), String> {
+    crate::outbox::queue(&state, outbox_repo::ANNOUNCEMENT_READ, Some(&announcement_id), serde_json::json!({}))
+}
+
+/// This device's open help request. One still waiting in the outbox is reported as
+/// `queued`, so the student sees it was noted even with no connection.
+#[tauri::command]
+pub async fn get_help_request(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
+    {
+        let conn = state.db.lock().unwrap();
+        if let Some(entry) = outbox_repo::of_kind(&conn, outbox_repo::HELP_REQUEST).map_err(|e| e.to_string())?.into_iter().last() {
+            return Ok(serde_json::json!({ "help_request": {
+                "id": entry.key,
+                "status": "queued",
+                "message": entry.payload["message"],
+                "requested_at": entry.created_at,
+            }}));
+        }
+        // Withdrawn but the server has not heard yet: it is already gone as far as the student is concerned.
+        if outbox_repo::has_kind(&conn, outbox_repo::HELP_CANCEL).map_err(|e| e.to_string())? {
+            return Ok(serde_json::json!({ "help_request": null }));
+        }
+    }
+    let (base_url, token) = device_credentials(&state)?;
+    crate::api_client::device_json(&state.http, &base_url, &token, reqwest::Method::GET, "help-requests/current", None).await
+}
+
+#[tauri::command]
+pub fn request_help(state: State<AppState>, request_id: String, message: Option<String>) -> Result<serde_json::Value, String> {
+    let payload = serde_json::json!({ "uuid": request_id, "message": message, "session_uuid": open_session_uuid(&state) });
+    crate::outbox::queue(&state, outbox_repo::HELP_REQUEST, Some(&request_id), payload)?;
+    Ok(serde_json::json!({
+        "id": request_id,
+        "status": "queued",
+        "message": message,
+        "requested_at": chrono::Utc::now().to_rfc3339(),
+    }))
+}
+
+#[tauri::command]
+pub fn cancel_help_request(state: State<AppState>, request_id: String) -> Result<(), String> {
+    // Never sent: just forget it, so the teacher is not told about a hand that went down.
+    let unsent = {
+        let conn = state.db.lock().unwrap();
+        outbox_repo::remove(&conn, outbox_repo::HELP_REQUEST, &request_id).map_err(|e| e.to_string())?
+    };
+    if unsent {
+        return Ok(());
+    }
+    crate::outbox::queue(&state, outbox_repo::HELP_CANCEL, Some(&request_id), serde_json::json!({}))
+}
+
+/// Bring the kiosk window over the desktop (an announcement needs reading) and
+/// put the desktop back afterwards. See `shell_handoff.rs`.
+#[tauri::command]
+pub fn present_window(app: tauri::AppHandle) {
+    crate::shell_handoff::present_window(&app);
+}
+
+#[tauri::command]
+pub fn release_window(app: tauri::AppHandle, state: State<AppState>) {
+    crate::shell_handoff::release_window(&app, &state);
+}
+
+/// The conversation for whoever is signed in, plus anything they wrote that has
+/// not reached the server yet (`pending`). With no connection the server part is
+/// empty (`unread` is `null`, meaning "unknown") but `pending` still shows.
+#[tauri::command]
+pub async fn get_chat_messages(state: State<'_, AppState>, after: i64) -> Result<serde_json::Value, String> {
+    let local_session = open_session_uuid(&state);
+    let pending: Vec<serde_json::Value> = {
+        let conn = state.db.lock().unwrap();
+        outbox_repo::of_kind(&conn, outbox_repo::CHAT_MESSAGE)
+            .map_err(|e| e.to_string())?
+            .into_iter()
+            .filter(|entry| entry.payload["session_uuid"].as_str() == local_session.as_deref())
+            .map(|entry| serde_json::json!({ "uuid": entry.key, "body": entry.payload["body"] }))
+            .collect()
+    };
+
+    let fetched = match device_credentials(&state) {
+        Ok((base_url, token)) => {
+            let path = format!("messages?after={after}");
+            crate::api_client::device_json(&state.http, &base_url, &token, reqwest::Method::GET, &path, None).await
+        }
+        Err(error) => Err(error),
+    };
+
+    match fetched {
+        Ok(mut thread) => {
+            // The server may not know a session that was opened offline yet.
+            if thread["session_uuid"].is_null() {
+                thread["session_uuid"] = local_session.map_or(serde_json::Value::Null, serde_json::Value::String);
+            }
+            thread["pending"] = serde_json::Value::Array(pending);
+            Ok(thread)
+        }
+        Err(_) => Ok(serde_json::json!({ "session_uuid": local_session, "unread": null, "messages": [], "pending": pending })),
+    }
+}
+
+/// Queued, not sent inline: works with no connection and survives a restart. The
+/// message is tied to the session it was written in, so if it is only delivered
+/// after that student has gone it still lands in the right conversation.
+#[tauri::command]
+pub fn send_chat_message(state: State<AppState>, message_id: String, body: String) -> Result<(), String> {
+    let session = open_session_uuid(&state).ok_or_else(|| "Sign in to send a message.".to_string())?;
+    crate::outbox::queue(&state, outbox_repo::CHAT_MESSAGE, Some(&message_id), crate::outbox::chat_payload(&message_id, &body, &session))
+}
+
+#[tauri::command]
+pub fn mark_chat_read(state: State<AppState>) -> Result<(), String> {
+    let already_queued = {
+        let conn = state.db.lock().unwrap();
+        outbox_repo::has_kind(&conn, outbox_repo::CHAT_READ).map_err(|e| e.to_string())?
+    };
+    if already_queued {
+        return Ok(());
+    }
+    crate::outbox::queue(&state, outbox_repo::CHAT_READ, None, serde_json::json!({}))
+}
+
+#[tauri::command]
+pub fn set_help_widget_expanded(app: tauri::AppHandle, expanded: bool) -> Result<(), String> {
+    crate::help_widget::set_expanded(&app, expanded)
+}
+
+/// The floating "Ask for help" button, shown while a student is logged in.
+#[tauri::command]
+pub async fn show_help_widget(app: tauri::AppHandle) -> Result<(), String> {
+    crate::help_widget::show(&app)
+}
+
+#[tauri::command]
+pub fn hide_help_widget(app: tauri::AppHandle) {
+    crate::help_widget::hide(&app);
 }
 
 #[tauri::command]

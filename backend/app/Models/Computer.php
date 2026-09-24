@@ -72,6 +72,11 @@ class Computer extends Model
         $this->currentScreenSession()?->update(['status' => 'ended', 'ended_at' => now(), 'end_reason' => $reason]);
     }
 
+    public function helpRequests(): HasMany
+    {
+        return $this->hasMany(HelpRequest::class);
+    }
+
     /** Broadcasts this device is the source of (its screen shown to the classroom). */
     public function sourceBroadcasts(): HasMany
     {

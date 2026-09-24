@@ -3,8 +3,10 @@ mod browser_bridge;
 mod commands;
 mod credential_store;
 mod db;
+mod help_widget;
 mod mf;
 mod models;
+mod outbox;
 mod policy_sync;
 mod screen_broadcast;
 mod screen_share;
@@ -55,6 +57,7 @@ pub fn run() {
                     browser_bridge::tick(&bridge_state, tick_number).await;
                     bridge_state.screen_share.tick(&bridge_state).await;
                     bridge_state.screen_broadcast_source.tick(&bridge_state).await;
+                    bridge_state.outbox.flush(&bridge_state).await;
                     tick_number += 1;
                 }
             });
@@ -89,6 +92,19 @@ pub fn run() {
             commands::get_broadcast_status,
             commands::join_broadcast,
             commands::post_broadcast_candidate,
+            commands::get_announcements,
+            commands::mark_announcement_read,
+            commands::get_help_request,
+            commands::request_help,
+            commands::cancel_help_request,
+            commands::present_window,
+            commands::release_window,
+            commands::show_help_widget,
+            commands::hide_help_widget,
+            commands::get_chat_messages,
+            commands::send_chat_message,
+            commands::mark_chat_read,
+            commands::set_help_widget_expanded,
             commands::seed_demo_config,
             commands::seed_demo_roster,
         ]);
@@ -111,6 +127,19 @@ pub fn run() {
             commands::get_broadcast_status,
             commands::join_broadcast,
             commands::post_broadcast_candidate,
+            commands::get_announcements,
+            commands::mark_announcement_read,
+            commands::get_help_request,
+            commands::request_help,
+            commands::cancel_help_request,
+            commands::present_window,
+            commands::release_window,
+            commands::show_help_widget,
+            commands::hide_help_widget,
+            commands::get_chat_messages,
+            commands::send_chat_message,
+            commands::mark_chat_read,
+            commands::set_help_widget_expanded,
         ]);
     }
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import "./App.css";
+import { AnnouncementOverlay } from "./components/AnnouncementOverlay";
 import { BroadcastViewer } from "./components/BroadcastViewer";
 import { commandErrorMessage, getConfig, getOpenSession } from "./lib/commands";
 import { installKioskGuards } from "./lib/kioskGuards";
@@ -64,6 +65,7 @@ function App() {
         <LoggedInScreen session={screen.session} onLogout={() => setScreen({ kind: "keypad" })} />
       )}
       <BroadcastViewer />
+      <AnnouncementOverlay />
     </>
   );
 }

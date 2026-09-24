@@ -185,3 +185,73 @@ The teacher device-grid snapshot (`GET .../devices`) gains `broadcast_id`: the a
 ### Lifecycle
 
 A broadcast is `active` → `ended`. Only one active broadcast per classroom at a time (not per device), enforced the same way as one-viewer-per-device. Each target is `pending` (offer given) → `active` (answered) → `ended`, mirroring `screen_sessions.status` and its `end_reason`s exactly: `ended`, `expired` (source never answered within 30s), `target_lost` (the receiving kiosk's own poll — its liveness signal, same as a teacher's — went quiet for 30s while active), `source_offline`, `source_revoked` (both also end the broadcast itself and every current target, not just the one row).
+
+
+# Milestone 5 contracts — communication (announcements, help requests, chat)
+
+Teacher-to-class **announcements** and student **help requests** ("raise hand"). Collaborative-teaching permissions are not part of the MVP. As elsewhere, a device holds no socket: it polls, and the teacher's already-open socket gets a nudge.
+
+## REST
+
+| Method | Path | Principal | Purpose |
+|---|---|---|---|
+| POST | `/api/v1/teacher/classrooms/{c}/announcements` | Primary/assistant/admin | Send to every device in the classroom: `message` (1-500 chars), `duration_minutes?` (1-120, default 10) |
+| GET | `/api/v1/teacher/classrooms/{c}/announcements` | Teacher (viewer+) | The 10 most recent, each with `total_devices`, `delivered`, `read` |
+| GET | `/api/v1/teacher/classrooms/{c}/help-requests` | Teacher (viewer+) | Open requests, oldest first, with device and student name |
+| POST | `/api/v1/teacher/classrooms/{c}/help-requests/{id}/resolve` | Primary/assistant/admin | Mark it handled. Idempotent |
+| GET | `/api/v1/device/announcements` | Active device | This device's unread, unexpired announcements (oldest first, at most 5). Fetching marks each **delivered** |
+| POST | `/api/v1/device/announcements/{id}/read` | Active device | The student dismissed it: marks it **read** |
+| GET | `/api/v1/device/help-requests/current` | Active device | `{help_request}`: this device's open request, or `null` once it is resolved or cancelled |
+| POST | `/api/v1/device/help-requests` | Active device | Raise a hand: body `{uuid, message?, session_uuid?}` (message up to 200 chars) |
+| POST | `/api/v1/device/help-requests/{id}/cancel` | Active device | The student withdrew it |
+
+The teacher device-grid snapshot (`GET .../devices`) gains `help_request`: `{id, status, message, requested_at}` for the device's open request, otherwise `null`.
+
+## Behaviour
+
+- **Announcements** last until `expires_at`, so a device that was offline or logged out when one was sent still receives it on its next poll. Delivery/read state is per device (`announcement_receipts`): `delivered` when first fetched, `read` when dismissed. The teacher sees counts, not who.
+- **Help requests** are idempotent on the device-chosen `uuid`: re-sending the same one returns it (`200`) instead of raising a second, and a device with a request already open gets that one back rather than a new one. A `uuid` already used by another device is `409 REQUEST_ID_TAKEN`. The student is taken from the device's active login session, so a request raised on the keypad (nobody logged in) has no student.
+- **Audit actions:** `announcement.sent`, `help.requested`, `help.resolved`.
+
+## Realtime events
+
+`private-classroom.{id}`: `classroom.communication.changed` with `kind` = `help` (raised, cancelled or resolved) or `announcement` (read). A nudge only; the Teacher app re-fetches over REST.
+
+## On the kiosk
+
+- **Announcements** show full-screen over everything (`AnnouncementOverlay`) until the student taps OK. While a student is logged in the kiosk window is hidden behind the desktop (see `shell_handoff.rs`); it is brought forward for the announcement and put away again once the last unread one is dismissed. With nobody logged in the window is already the screen.
+- **Help.** The keypad screen has an "Ask for help" button. While a student is logged in the kiosk window is hidden, so a small always-on-top window (`help_widget.rs`, running the same frontend, chosen by window label) floats at the bottom-right of the primary monitor with the same button. It shows "Teacher notified" until the request is resolved or cancelled.
+
+## Chat
+
+A conversation is **one student's login session on one computer**: a teacher talks to whoever is signed in on that device right now, and the next student to sit down starts with an empty thread rather than reading the last one's. Messages are up to 500 characters.
+
+| Method | Path | Principal | Purpose |
+|---|---|---|---|
+| GET | `/api/v1/teacher/classrooms/{c}/devices/{d}/messages` | Teacher (viewer+) | The current conversation (`{session, messages}`, newest 200). `session` is `null` when nobody is signed in. **Opening it marks the student's messages read** |
+| POST | `/api/v1/teacher/classrooms/{c}/devices/{d}/messages` | Primary/assistant/admin | Send: body `{uuid, body}`. `409 NO_ACTIVE_STUDENT` if nobody is signed in |
+| GET | `/api/v1/device/messages?after=` | Active device | `{session_uuid, unread, messages}` for the signed-in student, from `after` on. Fetching what a teacher sent marks it **delivered**. `unread` counts the teacher's messages not yet opened |
+| POST | `/api/v1/device/messages` | Active device | The student writes to the teacher: body `{uuid, body, session_uuid?}`. Without `session_uuid` it goes to whoever is signed in (`409 NO_ACTIVE_STUDENT` if nobody is); with it, to that login session (`409 SESSION_UNKNOWN` if the server has not received that session yet) |
+| POST | `/api/v1/device/messages/read` | Active device | The student opened the chat: everything the teacher sent counts as read |
+
+Sending is idempotent on the sender-chosen `uuid` (a retry returns the same message; a `uuid` already used by someone else is `409 MESSAGE_ID_TAKEN`). Each message carries `delivered_at` and `read_at`, so the teacher's thread shows sent, delivered, or read. The teacher device-grid snapshot gains `unread_messages`, the number of the student's messages no teacher has opened. A student's message dispatches `classroom.communication.changed` with `kind` = `chat`.
+
+On the kiosk the floating help bar has a "Chat" button (red with a count while there are unread messages); opening it grows the bar into a chat panel. Anything the student types while the connection is down is queued on disk and delivered later under the same `uuid` (see Offline queue).
+
+## Offline queue (kiosk)
+
+Everything a student does in this milestone is written to a durable on-disk queue first (`outbox` table in the kiosk's SQLite database, `outbox.rs`) and delivered in order, so a network outage or a kiosk restart loses nothing. The student's tap returns at once; delivery is attempted immediately in the background and then on every 3-second tick.
+
+| Queued action | Delivered as |
+|---|---|
+| Chat message | `POST /device/messages` with `{uuid, body, session_uuid}` |
+| Raised hand | `POST /device/help-requests` with `{uuid, message, session_uuid}` |
+| Withdrawn hand | `POST /device/help-requests/{id}/cancel` (if the hand was never sent, it is simply removed and nothing is sent) |
+| Dismissed announcement | `POST /device/announcements/{id}/read` |
+| Opened the chat | `POST /device/messages/read` (at most one queued) |
+
+**Attribution.** Chat messages and raised hands carry the `session_uuid` of the login session they were written in, so one delivered after that student has left is still credited to them and never to whoever is signed in by then. The server refuses a hand from a session that has ended (`409 SESSION_ENDED`) and asks the kiosk to wait for a session it has not received yet (`409 SESSION_UNKNOWN`, since sessions are synced separately from the outbox).
+
+**Delivery rules.** Order is kept: delivery stops at the first entry that cannot be sent yet. Network failure, `5xx`, `408`, `429` and `SESSION_UNKNOWN` are retried. Any other refusal (`4xx`) means the server will never accept it, so the entry is dropped and a warning logged. A raised hand still unsent after 10 minutes is dropped (it is no longer a live request for help); chat messages never expire.
+
+**What the student sees.** Messages not yet delivered show as "Not sent yet, retrying…" in the chat; a hand not yet delivered shows "Will send when you're back online"; an announcement the student dismissed offline stays dismissed and does not reappear when the connection returns. Announcements themselves, and anything from the teacher, still need a connection to arrive.

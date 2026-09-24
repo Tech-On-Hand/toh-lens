@@ -40,3 +40,40 @@ export interface SyncResult {
   synced: number;
   failed: number;
 }
+
+export interface Announcement {
+  id: string;
+  message: string;
+  sent_by: string | null;
+  sent_at: string;
+  expires_at: string;
+}
+
+export interface HelpRequest {
+  id: string;
+  // "queued": raised with no connection, still waiting to be sent.
+  status: "queued" | "open" | "resolved" | "cancelled";
+  message: string | null;
+  requested_at: string;
+}
+
+
+export interface ChatMessage {
+  id: number;
+  uuid: string;
+  direction: "to_student" | "to_teacher";
+  sender_name: string | null;
+  body: string;
+  sent_at: string;
+  delivered_at: string | null;
+  read_at: string | null;
+}
+
+export interface ChatThread {
+  session_uuid: string | null;
+  // null: the server could not be reached, so the count is unknown.
+  unread: number | null;
+  messages: ChatMessage[];
+  // Written by the student but not delivered yet (queued on disk).
+  pending: { uuid: string; body: string }[];
+}

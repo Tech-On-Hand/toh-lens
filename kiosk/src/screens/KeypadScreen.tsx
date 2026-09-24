@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { HelpButton } from "../components/HelpButton";
 import { NumericKeypad } from "../components/NumericKeypad";
 import { RosterFreshnessNote } from "../components/RosterFreshnessNote";
 import { ScreenWatchIndicator } from "../components/ScreenWatchIndicator";
@@ -49,6 +50,7 @@ export function KeypadScreen({ onLogin }: KeypadScreenProps) {
       </div>
 
       <RosterFreshnessNote />
+      <HelpButton />
     </div>
   );
 }

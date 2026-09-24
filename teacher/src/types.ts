@@ -27,6 +27,8 @@ export interface Device {
   } | null;
   watched_by: string | null;
   broadcast_id: string | null;
+  help_request: HelpRequest | null;
+  unread_messages: number;
 }
 
 export interface ScreenSessionSummary {
@@ -71,4 +73,38 @@ export interface ClassroomPolicy {
   block_rules: { id: number; domain: string; scope: "school" | "classroom" }[];
   focus: FocusSession | null;
   server_time: string;
+}
+
+export interface HelpRequest {
+  id: string;
+  status: "open" | "resolved" | "cancelled";
+  message: string | null;
+  requested_at: string;
+}
+
+export interface Announcement {
+  id: string;
+  message: string;
+  sent_by: string | null;
+  sent_at: string;
+  expires_at: string;
+  total_devices: number;
+  delivered: number;
+  read: number;
+}
+
+export interface ChatMessage {
+  id: number;
+  uuid: string;
+  direction: "to_student" | "to_teacher";
+  sender_name: string | null;
+  body: string;
+  sent_at: string;
+  delivered_at: string | null;
+  read_at: string | null;
+}
+
+export interface ChatThread {
+  session: { uuid: string; student_name: string | null } | null;
+  messages: ChatMessage[];
 }

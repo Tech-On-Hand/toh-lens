@@ -62,9 +62,24 @@ CREATE TABLE policy_cache (
 );
 "#;
 
+/// What a student did that the server has not been told about yet (chat
+/// messages, raised hands, dismissed announcements), so an outage or a restart
+/// never loses it. See `outbox.rs`.
+const MIGRATION_V4: &str = r#"
+CREATE TABLE outbox (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind       TEXT NOT NULL,
+    key        TEXT,
+    payload    TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX idx_outbox_kind_key ON outbox (kind, key);
+"#;
+
 /// Step-wise migrations keyed by `PRAGMA user_version`. Add new steps by
 /// appending to this slice — never edit a step that has already shipped.
-const MIGRATIONS: &[&str] = &[MIGRATION_V1, MIGRATION_V2, MIGRATION_V3];
+const MIGRATIONS: &[&str] = &[MIGRATION_V1, MIGRATION_V2, MIGRATION_V3, MIGRATION_V4];
 
 pub fn run_migrations(conn: &Connection) -> rusqlite::Result<()> {
     let current_version: i64 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;

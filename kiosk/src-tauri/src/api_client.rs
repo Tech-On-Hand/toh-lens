@@ -8,6 +8,34 @@ fn join_url(base_url: &str, path: &str) -> String {
     format!("{}/{}", base_url.trim_end_matches('/'), path.trim_start_matches('/'))
 }
 
+/// One authenticated call to a `/api/v1/device/*` endpoint that just returns the
+/// envelope's `data`. Used by the communication commands (announcements, help
+/// requests), which need no bespoke request shape of their own.
+pub async fn device_json(
+    http: &reqwest::Client,
+    base_url: &str,
+    token: &str,
+    method: reqwest::Method,
+    path: &str,
+    body: Option<serde_json::Value>,
+) -> Result<serde_json::Value, String> {
+    let mut request = http.request(method, join_url(base_url, &format!("api/v1/device/{path}"))).bearer_auth(token);
+    if let Some(body) = body {
+        request = request.json(&body);
+    }
+    let response = request.send().await.map_err(|e| e.to_string())?;
+
+    if !response.status().is_success() {
+        return Err(format!("server returned {}", response.status()));
+    }
+    response
+        .json::<ApiEnvelope<serde_json::Value>>()
+        .await
+        .map_err(|e| e.to_string())?
+        .data
+        .ok_or_else(|| "The server returned an invalid response.".into())
+}
+
 pub async fn enroll_device(
     http: &reqwest::Client,
     base_url: &str,
