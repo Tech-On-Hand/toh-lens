@@ -105,6 +105,8 @@ Tick each on the first computer, then on a sample of the rest.
 
 - [ ] Student logs in with an admission number, and logs out; the session shows in the Teacher app.
 - [ ] Log in with the network unplugged, then reconnect: the session syncs and shows the right student.
+- [ ] While signed in, restart the kiosk (or the computer): it lands on the keypad with a notice, not back in the lesson.
+- [ ] While signed in, put the computer to sleep and wake it: it is signed out immediately, no warning, straight to the keypad.
 - [ ] Teacher opens a page on the student's browser; the student's active tab shows on the grid.
 - [ ] A blocked site is blocked; a focus session lets only the listed sites through and ends on time, including with the network unplugged.
 - [ ] Watch a student's screen (thumbnail, then Full view); the student sees the red banner; stopping clears it.
