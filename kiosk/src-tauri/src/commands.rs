@@ -202,6 +202,36 @@ pub fn record_login(app: tauri::AppHandle, state: State<AppState>, admission_num
     Ok(record)
 }
 
+/// Called once at startup, before anything else can happen. A session left open
+/// by a crash, a forced power-off, a restart, or waking from sleep is closed
+/// immediately rather than resumed — the kiosk must never assume whoever is at
+/// the keyboard now is whoever was signed in before. Returns whether a session
+/// was actually reclaimed, so the caller can tell the next student why the
+/// keypad is asking for them instead of showing a lesson already in progress.
+#[tauri::command]
+pub fn reclaim_stale_session(app: tauri::AppHandle, state: State<AppState>) -> Result<bool, String> {
+    let config = {
+        let conn = state.db.lock().unwrap();
+        config_repo::get_config(&conn).map_err(|e| e.to_string())?
+    };
+    let Some(config) = config else { return Ok(false) };
+
+    let reclaimed = {
+        let conn = state.db.lock().unwrap();
+        session_repo::reclaim_open_session(&conn, config.computer_id).map_err(|e| e.to_string())?
+    };
+
+    if reclaimed.is_some() {
+        // The previous process may have handed the desktop off to this account's
+        // explorer.exe and never reclaimed it (a crash or forced shutdown, not a
+        // clean logout) — bring the kiosk window back to the front regardless.
+        crate::shell_handoff::reclaim_desktop(&app, &state);
+        state.bridge.request_snapshots();
+    }
+
+    Ok(reclaimed.is_some())
+}
+
 #[tauri::command]
 pub fn record_logout(app: tauri::AppHandle, state: State<AppState>, session_uuid: String) -> Result<(), String> {
     {
@@ -223,15 +253,6 @@ pub fn record_logout(app: tauri::AppHandle, state: State<AppState>, session_uuid
     Ok(())
 }
 
-#[tauri::command]
-pub fn get_open_session(state: State<AppState>) -> Result<Option<LoginSessionRecord>, String> {
-    let conn = state.db.lock().unwrap();
-    let Some(config) = config_repo::get_config(&conn).map_err(|e| e.to_string())? else {
-        return Ok(None);
-    };
-
-    session_repo::find_open_session(&conn, config.computer_id).map_err(|e| e.to_string())
-}
 
 #[tauri::command]
 pub async fn sync_now(state: State<'_, AppState>) -> Result<SyncResult, String> {

@@ -20,6 +20,16 @@ All `/api/v1` responses use `{ "success": true, "data": ... }` or `{ "success": 
 
 The unversioned roster/session endpoints remain available to existing TOH Lens clients during migration.
 
+## Identity on a shared computer
+
+A student login session ends the moment the kiosk cannot be sure the person at the keyboard is still the one who signed in — not just when they click Log Out:
+
+- **20 minutes idle** (no keyboard/mouse activity), with a 60-second on-screen warning first.
+- **Any suspected sleep/hibernate**, however brief, logs out at once with no warning. Detected by comparing real elapsed time (`Date.now()`) between ticks of a 2-second timer against the interval itself: a gap over 10 seconds means the OS suspended the process (timers don't fire while suspended), not that the tab was merely slow.
+- **Kiosk startup always reclaims a session left open** by a crash, forced power-off, restart, or an update, closing it before the app shows anything interactive. The kiosk never resumes straight into a session on start; it always lands on the keypad, with an on-screen notice when there was something to reclaim.
+
+In every case, the next thing on screen is the keypad — access requires the admission number again, since the previous student's `logout_time` being unset must never be read as "still them."
+
 ## Realtime events
 
 Private classroom channel: `private-classroom.{classroom_id}`. Private device channel: `private-device.{device_uuid}`.

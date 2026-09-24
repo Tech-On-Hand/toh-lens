@@ -9,9 +9,11 @@ import type { LoginSessionRecord } from "../types";
 
 interface KeypadScreenProps {
   onLogin: (session: LoginSessionRecord) => void;
+  /** Why the keypad is showing instead of a lesson already in progress (a restart or a sleep-forced sign-out), if there is a reason to give. */
+  notice?: string;
 }
 
-export function KeypadScreen({ onLogin }: KeypadScreenProps) {
+export function KeypadScreen({ onLogin, notice }: KeypadScreenProps) {
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -45,8 +47,8 @@ export function KeypadScreen({ onLogin }: KeypadScreenProps) {
 
       <NumericKeypad value={value} onChange={handleChange} onSubmit={handleSubmit} />
 
-      <div className={`keypad-message ${error ? "keypad-message--error" : ""}`} aria-live="polite">
-        {error ?? " "}
+      <div className={`keypad-message ${error ? "keypad-message--error" : notice ? "keypad-message--notice" : ""}`} aria-live="polite">
+        {error ?? notice ?? " "}
       </div>
 
       <RosterFreshnessNote />

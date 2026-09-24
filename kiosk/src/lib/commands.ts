@@ -48,8 +48,14 @@ export function recordLogout(sessionUuid: string): Promise<void> {
   return invoke("record_logout", { sessionUuid });
 }
 
-export function getOpenSession(): Promise<LoginSessionRecord | null> {
-  return invoke("get_open_session");
+/**
+ * Closes whatever session was left open on this computer (a crash, a forced
+ * power-off, a restart, or waking from sleep all skip the Log Out click) and
+ * reports whether there was one, so the kiosk always starts at the keypad
+ * instead of silently resuming a lesson that might now be a different student.
+ */
+export function reclaimStaleSession(): Promise<boolean> {
+  return invoke("reclaim_stale_session");
 }
 
 export function syncNow(): Promise<SyncResult> {

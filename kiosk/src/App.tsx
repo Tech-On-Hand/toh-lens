@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import "./App.css";
 import { AnnouncementOverlay } from "./components/AnnouncementOverlay";
 import { BroadcastViewer } from "./components/BroadcastViewer";
-import { commandErrorMessage, getConfig, getOpenSession, refreshRoster, tryAutoEnroll } from "./lib/commands";
+import { commandErrorMessage, getConfig, reclaimStaleSession, refreshRoster, tryAutoEnroll } from "./lib/commands";
 import { installKioskGuards } from "./lib/kioskGuards";
 import { KeypadScreen } from "./screens/KeypadScreen";
 import { LoggedInScreen } from "./screens/LoggedInScreen";
@@ -13,8 +13,10 @@ type Screen =
   | { kind: "loading" }
   | { kind: "error"; message: string }
   | { kind: "setup"; error?: string | null }
-  | { kind: "keypad" }
+  | { kind: "keypad"; notice?: string }
   | { kind: "loggedin"; session: LoginSessionRecord };
+
+const RESTART_NOTICE = "This computer restarted, or the last session wasn't signed out. Please sign in again.";
 
 async function determineInitialScreen(): Promise<Screen> {
   let config = await getConfig();
@@ -32,10 +34,12 @@ async function determineInitialScreen(): Promise<Screen> {
   }
   if (!config) return { kind: "setup", error: setupError };
 
-  const openSession = await getOpenSession();
-  if (openSession) return { kind: "loggedin", session: openSession };
-
-  return { kind: "keypad" };
+  // FR-1 identity risk: a crash, forced power-off, restart, or waking from
+  // sleep all skip the Log Out click, so never resume straight into whatever
+  // session was left open — a different student may now be at the keyboard.
+  // Always land on the keypad; only say why when there was something to reclaim.
+  const reclaimed = await reclaimStaleSession().catch(() => false);
+  return { kind: "keypad", notice: reclaimed ? RESTART_NOTICE : undefined };
 }
 
 function App() {
@@ -72,9 +76,9 @@ function App() {
   return (
     <>
       {screen.kind === "keypad" ? (
-        <KeypadScreen onLogin={(session) => setScreen({ kind: "loggedin", session })} />
+        <KeypadScreen notice={screen.notice} onLogin={(session) => setScreen({ kind: "loggedin", session })} />
       ) : (
-        <LoggedInScreen session={screen.session} onLogout={() => setScreen({ kind: "keypad" })} />
+        <LoggedInScreen session={screen.session} onLogout={(notice) => setScreen({ kind: "keypad", notice })} />
       )}
       <BroadcastViewer />
       <AnnouncementOverlay />

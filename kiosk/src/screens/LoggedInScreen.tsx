@@ -3,11 +3,14 @@ import { ScreenWatchIndicator } from "../components/ScreenWatchIndicator";
 import { SyncStatusBadge } from "../components/SyncStatusBadge";
 import { commandErrorMessage, hideHelpWidget, recordLogout, showHelpWidget } from "../lib/commands";
 import { useIdleTimeout } from "../lib/useIdleTimeout";
+import { useSleepDetector } from "../lib/useSleepDetector";
 import type { LoginSessionRecord } from "../types";
+
+const SLEEP_NOTICE = "This computer went to sleep, so you were signed out. Please sign in again.";
 
 interface LoggedInScreenProps {
   session: LoginSessionRecord;
-  onLogout: () => void;
+  onLogout: (notice?: string) => void;
 }
 
 // A typical lesson period is long enough that these defaults shouldn't
@@ -20,13 +23,13 @@ export function LoggedInScreen({ session, onLogout }: LoggedInScreenProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleLogout = useCallback(async () => {
+  const handleLogout = useCallback(async (notice?: string) => {
     setIsLoggingOut(true);
     setError(null);
 
     try {
       await recordLogout(session.session_uuid);
-      onLogout();
+      onLogout(notice);
     } catch (err) {
       setError(commandErrorMessage(err));
       setIsLoggingOut(false);
@@ -46,6 +49,15 @@ export function LoggedInScreen({ session, onLogout }: LoggedInScreenProps) {
     onIdle: handleLogout,
   });
 
+  // FR-1 identity risk: sleep/hibernate pauses this window's timers, so a
+  // different student could wake the machine and carry on as whoever was
+  // signed in, with none of the idle-timeout warning's grace period. Signs
+  // out at once, no warning, the moment a suspected sleep is detected.
+  const forceLogoutAfterSleep = useCallback(() => {
+    void handleLogout(SLEEP_NOTICE);
+  }, [handleLogout]);
+  useSleepDetector(forceLogoutAfterSleep);
+
   return (
     <div className="screen loggedin-screen">
       <ScreenWatchIndicator />
@@ -56,7 +68,7 @@ export function LoggedInScreen({ session, onLogout }: LoggedInScreenProps) {
 
       {error && <p className="setup-error">{error}</p>}
 
-      <button type="button" className="logout-button" onClick={handleLogout} disabled={isLoggingOut}>
+      <button type="button" className="logout-button" onClick={() => void handleLogout()} disabled={isLoggingOut}>
         {isLoggingOut ? "Logging out…" : "Log Out"}
       </button>
 

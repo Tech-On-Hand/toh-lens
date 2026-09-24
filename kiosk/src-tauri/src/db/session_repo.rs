@@ -67,6 +67,21 @@ pub fn close_logout(conn: &Connection, session_uuid: &str) -> rusqlite::Result<(
     Ok(())
 }
 
+/// Closes whatever session was left open on this computer, if any — called once
+/// at kiosk startup. A crash, forced power-off, restart, or waking from sleep all
+/// leave `logout_time` unset with no chance for the student to click Log Out; the
+/// kiosk must never resume straight into that session, since whoever is at the
+/// keyboard now might not be who was signed in before. Returns the session that
+/// was closed, if there was one, so the caller can react (e.g. reclaim the
+/// desktop hand-off).
+pub fn reclaim_open_session(conn: &Connection, computer_id: i64) -> rusqlite::Result<Option<LoginSessionRecord>> {
+    let open = find_open_session(conn, computer_id)?;
+    if open.is_some() {
+        close_dangling_open_session(conn, computer_id)?;
+    }
+    Ok(open)
+}
+
 pub fn find_open_session(conn: &Connection, computer_id: i64) -> rusqlite::Result<Option<LoginSessionRecord>> {
     conn.query_row(
         "SELECT session_uuid, admission_number, full_name, login_time, logout_time
@@ -135,4 +150,57 @@ pub fn mark_synced(conn: &Connection, uuids: &[String]) -> rusqlite::Result<()> 
         stmt.execute((&now, uuid))?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn database() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::schema::run_migrations(&conn).unwrap();
+        conn
+    }
+
+    fn student(admission_number: &str) -> StudentSummary {
+        StudentSummary { id: 1, admission_number: admission_number.to_string(), full_name: "A Student".to_string() }
+    }
+
+    #[test]
+    fn reclaiming_with_nothing_open_does_nothing_and_reports_none() {
+        let conn = database();
+        assert!(reclaim_open_session(&conn, 1).unwrap().is_none());
+    }
+
+    #[test]
+    fn reclaiming_closes_the_open_session_and_returns_it() {
+        let conn = database();
+        let opened = insert_login(&conn, 1, 1, &student("1001")).unwrap();
+
+        let reclaimed = reclaim_open_session(&conn, 1).unwrap().expect("a session was open");
+
+        assert_eq!(reclaimed.session_uuid, opened.session_uuid);
+        assert!(find_open_session(&conn, 1).unwrap().is_none());
+    }
+
+    #[test]
+    fn reclaiming_only_touches_the_named_computer() {
+        let conn = database();
+        insert_login(&conn, 1, 1, &student("1001")).unwrap();
+        let other = insert_login(&conn, 1, 2, &student("1002")).unwrap();
+
+        reclaim_open_session(&conn, 1).unwrap();
+
+        let still_open = find_open_session(&conn, 2).unwrap().expect("computer 2's session is untouched");
+        assert_eq!(still_open.session_uuid, other.session_uuid);
+    }
+
+    #[test]
+    fn reclaiming_is_safe_to_call_again_once_nothing_is_open() {
+        let conn = database();
+        insert_login(&conn, 1, 1, &student("1001")).unwrap();
+        reclaim_open_session(&conn, 1).unwrap();
+
+        assert!(reclaim_open_session(&conn, 1).unwrap().is_none());
+    }
 }
