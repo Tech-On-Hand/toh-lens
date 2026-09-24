@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   AuditEntry,
   Fleet,
+  Impact,
   ActivityReport,
   BrowserTab,
   Classroom,
@@ -66,3 +67,5 @@ export const getActivityReport = (classroomId: number, from: string, to: string)
 export const listAudit = (schoolId: number, classroomId: number | null, action: string | null, beforeId: number | null, limit: number) =>
   invoke<AuditEntry[]>("list_audit", { schoolId, classroomId, action, beforeId, limit });
 export const getFleet = (schoolId: number) => invoke<Fleet>("get_fleet", { schoolId });
+export const getImpact = (schoolId: number | null, organizationId: number | null, from: string, to: string) =>
+  invoke<Impact>("get_impact", { schoolId, organizationId, from, to });

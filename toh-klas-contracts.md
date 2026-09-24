@@ -311,3 +311,22 @@ The step-by-step is `provisioning/pilot-rollout.md`. What the tooling is:
 `device_name` is optional (the computer's name is used). A file that cannot work, or an enrollment that fails, falls back to the normal setup screen with the reason shown.
 
 **Windows scripts (`provisioning/`).** `provision-student-pc.ps1` installs the kiosk MSI silently, writes that file, installs the browser integration and optionally applies the hardening (`-DryRun` prints everything first). `verify-student-pc.ps1` is read-only and checks Windows screen-capture support, WebView2, the kiosk, the native host and browser policies, the kiosk log, the server, the clock and UDP reachability of Google's STUN server, exiting non-zero on a FAIL.
+
+
+# Impact report (for donors and boards)
+
+Answers "are the computers being used?" with aggregate numbers that can leave the school. It **measures use, not learning**: the school's own results and teacher feedback have to sit alongside it.
+
+| Method | Path | Principal | Purpose |
+|---|---|---|---|
+| GET | `/api/v1/admin/impact?school_id=` or `?organization_id=&from=&to=` | School administrator (own school) or organization administrator | The report for one school, or every school in an organization. `from`/`to` are `Y-m-d` in the server's timezone, default the last 30 days, at most a year (`422 RANGE_TOO_LONG`) |
+
+**Contents.** `computers` (enrolled, used at least once, never used after a week enrolled, not heard from for two weeks), `students` (reached, on the roster, percent), `usage` (sessions, hours signed in, active and idle hours from application tracking, average session, days with use), `availability`, `weekly` (every week in the period, including quiet ones), `tools` (programs and websites), `schools` (a breakdown, one row per school), and `notes` (what to know before trusting the numbers).
+
+**Availability** is the share of school days (Monday to Friday) on which a computer was switched on that a student used it. "Switched on" comes from `device_activity_days`, one row per computer per day it connected, written by the heartbeat; history starts the day this shipped, and only days with a record are compared, so older sessions cannot skew it. It is `null` until there is any history.
+
+**Privacy.** The report contains no student name, admission number or id, and nothing about an individual: only counts, hours and percentages. A program or website is listed only when at least **5 different students** used it (`tools.min_students`), so one student's habits cannot be picked out. The desktop itself (`explorer.exe`) is not counted as a tool.
+
+**Approximations, stated in `notes`.** A session counts for at most 8 hours, and one that was never closed and is more than 12 hours old is not counted. Active/idle hours only exist for computers running a version that tracks applications.
+
+The Teacher app shows it to administrators as an **Impact** panel: headline tiles, a weekly chart, top programs and sites, a school breakdown for an organization, a plain-language summary, a box for the school's own results (kept on that computer and included in the copy and the printout) and buttons to copy the summary or print / save as PDF. The printout leaves out the controls and the internal "needs attention" line, and adds a title.

@@ -6,6 +6,7 @@ import ChatPanel from "./ChatPanel";
 import BrowserPanel, { hostOf } from "./BrowserPanel";
 import AuditPanel from "./AuditPanel";
 import FleetPanel from "./FleetPanel";
+import ImpactPanel from "./ImpactPanel";
 import ReportPanel from "./ReportPanel";
 import PolicyPanel from "./PolicyPanel";
 import ScreenThumbnail from "./ScreenThumbnail";
@@ -50,7 +51,7 @@ function ClassroomView({ session, onLogout }: { session: TeacherSession; onLogou
   const [policyOpen, setPolicyOpen] = useState(false);
   const [announceOpen, setAnnounceOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
-  const [adminPanel, setAdminPanel] = useState<"audit" | "fleet" | null>(null);
+  const [adminPanel, setAdminPanel] = useState<"audit" | "fleet" | "impact" | null>(null);
   const [chatId, setChatId] = useState<number | null>(null);
 
   const refresh = useCallback(async (classroom = selected) => {
@@ -85,7 +86,7 @@ function ClassroomView({ session, onLogout }: { session: TeacherSession; onLogou
     </aside>
     <main className="classroom-main">
       <header><div><p className="eyebrow">{selected?.school.name ?? "YOUR SCHOOL"}</p><h1>{selected?.name ?? "No classroom assigned"}</h1></div>
-        <div className="header-actions"><span className={`connection ${connection.toLowerCase()}`}>● {connection}</span><button onClick={() => setReportOpen(true)}>Reports</button>{session.is_administrator && <button onClick={() => setAdminPanel("fleet")}>Fleet</button>}{session.is_administrator && <button onClick={() => setAdminPanel("audit")}>Audit</button>}<button onClick={() => setAnnounceOpen(true)}>Announce</button><button onClick={() => setPolicyOpen(true)}>Focus &amp; blocked sites</button><button onClick={() => setView(view === "grid" ? "list" : "grid")}>{view === "grid" ? "List view" : "Grid view"}</button></div>
+        <div className="header-actions"><span className={`connection ${connection.toLowerCase()}`}>● {connection}</span><button onClick={() => setReportOpen(true)}>Reports</button>{session.is_administrator && <button onClick={() => setAdminPanel("impact")}>Impact</button>}{session.is_administrator && <button onClick={() => setAdminPanel("fleet")}>Fleet</button>}{session.is_administrator && <button onClick={() => setAdminPanel("audit")}>Audit</button>}<button onClick={() => setAnnounceOpen(true)}>Announce</button><button onClick={() => setPolicyOpen(true)}>Focus &amp; blocked sites</button><button onClick={() => setView(view === "grid" ? "list" : "grid")}>{view === "grid" ? "List view" : "Grid view"}</button></div>
       </header>
       <section className="summary"><div><strong>{devices.length}</strong><span>Devices</span></div><div><strong>{online}</strong><span>Online now</span></div><div><strong>{devices.filter(d => d.active_session).length}</strong><span>Active students</span></div><div className={handsUp > 0 ? "needs-help" : undefined}><strong>{handsUp}</strong><span>Need help</span></div></section>
       <section className={view === "grid" ? "device-grid" : "device-list"}>
@@ -105,6 +106,7 @@ function ClassroomView({ session, onLogout }: { session: TeacherSession; onLogou
         </article>)}
         {selected && devices.length === 0 && <div className="empty"><h2>No devices yet</h2><p>Use an enrollment code from the web administration area to add a student computer.</p></div>}
       </section>
+      {selected && adminPanel === "impact" && <ImpactPanel classroom={selected} onClose={() => setAdminPanel(null)} />}
       {selected && adminPanel === "fleet" && <FleetPanel classroom={selected} onClose={() => setAdminPanel(null)} />}
       {selected && adminPanel === "audit" && <AuditPanel classroom={selected} onClose={() => setAdminPanel(null)} />}
       {selected && reportOpen && <ReportPanel classroom={selected} onClose={() => setReportOpen(false)} />}

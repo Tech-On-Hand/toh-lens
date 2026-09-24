@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\Admin\ClassroomController as AdminClassroomContr
 use App\Http\Controllers\Api\V1\Admin\DeviceController as AdminDeviceController;
 use App\Http\Controllers\Api\V1\Admin\EnrollmentCodeController;
 use App\Http\Controllers\Api\V1\Admin\FleetController;
+use App\Http\Controllers\Api\V1\Admin\ImpactController;
 use App\Http\Controllers\Api\V1\Admin\InvitationController;
 use App\Http\Controllers\Api\V1\AuthController as V1AuthController;
 use App\Http\Controllers\Api\V1\DeviceAppActivityController;
@@ -111,6 +112,7 @@ Route::prefix('v1')->group(function () {
             Route::delete('block-rules/{rule}', [BlockRuleController::class, 'destroy']);
             Route::get('audit', [AuditController::class, 'index']);
             Route::get('fleet', [FleetController::class, 'index']);
+            Route::get('impact', [ImpactController::class, 'show']);
             Route::get('classrooms', [AdminClassroomController::class, 'index']);
             Route::post('classrooms', [AdminClassroomController::class, 'store']);
             Route::put('classrooms/{classroom}/staff/{staff}', [AdminClassroomController::class, 'assignStaff']);

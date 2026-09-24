@@ -63,7 +63,7 @@ export default function ReportPanel({ classroom, onClose }: { classroom: Classro
 
         <div className="row report-range">
           {PRESETS.map((preset) => (
-            <button key={preset.label} className={from === preset.from() && to === preset.to() ? "" : "ghost"} onClick={() => { setFrom(preset.from()); setTo(preset.to()); }}>{preset.label}</button>
+            <button key={preset.label} className={from === preset.from() && to === preset.to() ? "ghost active" : "ghost"} onClick={() => { setFrom(preset.from()); setTo(preset.to()); }}>{preset.label}</button>
           ))}
           <label>From <input type="date" value={from} max={to} onChange={(event) => event.target.value && setFrom(event.target.value)} /></label>
           <label>To <input type="date" value={to} min={from} max={daysAgo(0)} onChange={(event) => event.target.value && setTo(event.target.value)} /></label>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Events\DevicePresenceChanged;
 use App\Models\Computer;
+use App\Models\DeviceActivityDay;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -28,6 +29,7 @@ class DeviceController extends ApiController
         /** @var Computer $device */
         $device = $request->user();
         $wasOnline = $device->presence_status === 'online';
+        $lastSeen = $device->last_seen_at;
         $metadataChanged = $device->hostname !== ($data['hostname'] ?? $device->hostname)
             || $device->operating_system !== ($data['operating_system'] ?? $device->operating_system)
             || $device->agent_version !== $data['agent_version'];
@@ -43,6 +45,11 @@ class DeviceController extends ApiController
             'last_seen_at' => now(),
             'presence_status' => 'online',
         ]);
+
+        // One row per computer per day, written only the first time it is seen that day.
+        if (! $lastSeen || ! $lastSeen->isToday()) {
+            DeviceActivityDay::query()->firstOrCreate(['computer_id' => $device->id, 'day' => now()->toDateString()]);
+        }
 
         if (! $wasOnline || $metadataChanged) {
             DevicePresenceChanged::dispatch($device->fresh(), 'online');

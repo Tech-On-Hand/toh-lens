@@ -35,7 +35,7 @@ class TeacherClassroomController extends ApiController
             'id' => $classroom->id,
             'uuid' => $classroom->uuid,
             'name' => $classroom->name,
-            'school' => ['id' => $classroom->school->id, 'name' => $classroom->school->name],
+            'school' => ['id' => $classroom->school->id, 'name' => $classroom->school->name, 'organization_id' => $classroom->school->organization_id],
         ]));
     }
 

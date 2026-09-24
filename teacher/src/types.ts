@@ -7,7 +7,7 @@ export interface Classroom {
   id: number;
   uuid: string;
   name: string;
-  school: { id: number; name: string };
+  school: { id: number; name: string; organization_id: number | null };
 }
 
 export interface Device {
@@ -153,4 +153,18 @@ export interface Fleet {
     hostname: string | null;
     issues: { code: string; message: string }[];
   }[];
+}
+
+export interface Impact {
+  scope: { type: "school" | "organization"; name: string };
+  generated_at: string;
+  period: { from: string; to: string; school_days: number };
+  computers: { enrolled: number; used: number; never_used: number; out_of_service: number };
+  students: { reached: number; on_roster: number; reach_percent: number | null };
+  usage: { sessions: number; signed_in_hours: number; active_hours: number; idle_hours: number; average_session_minutes: number | null; days_with_use: number };
+  availability: { computer_days_on: number; computer_days_used: number; used_percent: number | null };
+  weekly: { week_start: string; sessions: number; students: number; computers_used: number; hours: number }[];
+  tools: { min_students: number; apps: { name: string; hours: number; students: number }[]; sites: { domain: string; visits: number; students: number }[] };
+  schools: { name: string; computers: number; computers_used: number; students: number; sessions: number; hours: number }[];
+  notes: string[];
 }

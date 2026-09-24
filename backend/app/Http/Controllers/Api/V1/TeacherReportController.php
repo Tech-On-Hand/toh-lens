@@ -7,6 +7,7 @@ use App\Models\BrowserActivity;
 use App\Models\Classroom;
 use App\Models\LoginSession;
 use App\Models\User;
+use App\Support\AppNames;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -105,7 +106,7 @@ class TeacherReportController extends ApiController
             ->groupBy('process')
             ->map(fn (Collection $group, string $process) => [
                 'process' => $process,
-                'name' => $this->friendlyName($process),
+                'name' => AppNames::friendly($process),
                 'seconds' => $this->seconds($group),
             ])
             ->filter(fn (array $app) => $app['seconds'] >= 30)
@@ -124,19 +125,5 @@ class TeacherReportController extends ApiController
             ->groupBy('domain')
             ->map(fn (Collection $group, string $domain) => ['domain' => $domain, 'visits' => $group->count()])
             ->sortByDesc('visits')->take(self::TOP)->values()->all();
-    }
-
-    private function friendlyName(string $process): string
-    {
-        $known = [
-            'winword.exe' => 'Word', 'excel.exe' => 'Excel', 'powerpnt.exe' => 'PowerPoint', 'onenote.exe' => 'OneNote',
-            'outlook.exe' => 'Outlook', 'chrome.exe' => 'Chrome', 'msedge.exe' => 'Edge', 'firefox.exe' => 'Firefox',
-            'notepad.exe' => 'Notepad', 'calc.exe' => 'Calculator', 'mspaint.exe' => 'Paint', 'explorer.exe' => 'File Explorer',
-            'code.exe' => 'VS Code', 'teams.exe' => 'Teams', 'zoom.exe' => 'Zoom', 'acrobat.exe' => 'Acrobat',
-            'acrord32.exe' => 'Acrobat Reader', 'wordpad.exe' => 'WordPad', 'cmd.exe' => 'Command Prompt',
-            'powershell.exe' => 'PowerShell', 'taskmgr.exe' => 'Task Manager', 'scratch.exe' => 'Scratch',
-        ];
-
-        return $known[strtolower($process)] ?? $process;
     }
 }

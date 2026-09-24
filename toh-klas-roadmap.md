@@ -50,6 +50,10 @@ Not part of this item: **restricting** which apps can run. Tracking does not sto
 
 **Status:** built, with the server commands tested and the Windows scripts parse-checked, dry-run and (for the verify script) run on a dev PC; **not yet used to roll out a real school**. Server: `klas:bootstrap` (first school and administrator), `klas:enrollment-codes` (bulk one-time codes) and `klas:check` (readiness, including whether the scheduler is running). Kiosk: unattended enrollment from a provisioning file. Windows: `provision-student-pc.ps1` (one command per computer) and `verify-student-pc.ps1` (read-only health check). All tied together in `provisioning/pilot-rollout.md`, which includes a go/no-go checklist for real hardware, the disclosure checklist and rollback steps. The kiosk's automatic enrollment itself has unit tests for the file parsing but has not been run end to end against a live server.
 
+### Impact report for donors (built)
+
+**Status:** built and backend-tested (15 tests, including that no student is named and that small groups are hidden); the panel was rendered with sample data in a browser and its print layout checked, but has not been used with real school data or printed on a real printer. An administrator-only **Impact** panel in the Teacher app gives an aggregate, name-free picture of how the computers are used, for one school or a whole organization: students reached, hours of use, computers in use, out of service or never used, the share of school days a computer was used when switched on (new daily presence history), a weekly trend and the most-used programs and sites (only where at least 5 students used them). It can be copied as a short summary or printed / saved as a PDF, with room for the school's own results. It measures **use, not learning**. See `toh-klas-contracts.md`.
+
 ### Still to do in this milestone
 
 Scheduling is moved to after the MVP. Silent installers (the MSI installs silently, but nothing is signed), managed extension deployment, and signed updates need decisions first (a code-signing certificate, where updates are hosted, how devices are managed).

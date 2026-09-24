@@ -95,6 +95,10 @@ Copy these to the spare student PC: the MSI, `toh-klas-native-host.exe`, and the
 * **Tell students, parents and staff what is collected, and for how long, before the pilot starts.** As built: which browser tabs are open and the full URLs visited (including query strings), which desktop application is in front (process name only, never window titles or content), idle time, login and logout times, and, only while a teacher is watching, the live screen (a red banner shows the student when this is happening). Chat messages and help requests are stored with the student's session. Browsing and application activity are deleted after `TOH_ACTIVITY_RETENTION_DAYS` (default 90). Decide with the school whether that is acceptable.
 * Decide who may see the Reports and Audit panels: the Audit and Fleet panels are for school administrators; a teacher sees reports for their own classrooms.
 
+### Showing the donors it works
+
+Once the pilot has been running for a few weeks, an administrator opens **Impact** in the Teacher app, picks the period, adds a few lines of the school's own results (teacher quotes, test scores, attendance) and prints or saves it as a PDF. The report names no student and lists only programs and sites used by at least 5 students, so it is safe to share. It shows **use**, not learning: say so, and let the school's results carry that part. The "share of school days used" figure only fills in after the computers have been connecting for a few weeks (history starts when the server was updated), so start the clock early.
+
 ## 7. Go / no-go checklist (run on real hardware)
 
 Tick each on the first computer, then on a sample of the rest.
