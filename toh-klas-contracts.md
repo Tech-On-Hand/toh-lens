@@ -22,13 +22,16 @@ The unversioned roster/session endpoints remain available to existing TOH Lens c
 
 ## Identity on a shared computer
 
-A student login session ends the moment the kiosk cannot be sure the person at the keyboard is still the one who signed in — not just when they click Log Out:
+A student login session ends the moment the kiosk cannot be sure the person at the keyboard is still the one who signed in, not just when they click Log Out. The checks run in the kiosk's **native side** (`session_guard.rs`), not in its web page: after login the page is hidden behind the desktop, so it never sees the student's mouse and keyboard and browsers slow its timers. The guard wakes every 2 seconds, makes no network calls and reads the real, system-wide idle time.
 
-- **20 minutes idle** (no keyboard/mouse activity), with a 60-second on-screen warning first.
-- **Any suspected sleep/hibernate**, however brief, logs out at once with no warning. Detected by comparing real elapsed time (`Date.now()`) between ticks of a 2-second timer against the interval itself: a gap over 10 seconds means the OS suspended the process (timers don't fire while suspended), not that the tab was merely slow.
-- **Kiosk startup always reclaims a session left open** by a crash, forced power-off, restart, or an update, closing it before the app shows anything interactive. The kiosk never resumes straight into a session on start; it always lands on the keypad, with an on-screen notice when there was something to reclaim.
+- **Log Out is always reachable.** The floating bar (the only part of the kiosk visible while a student works on the desktop) has a **Log out** button, with a second tap to confirm so a stray click cannot end a session. The kiosk screen's own Log Out button still works when that screen is visible.
+- **20 minutes with no keyboard or mouse anywhere on the computer** ends the session. A minute before, the kiosk window comes forward with a countdown; any key or mouse movement cancels it and puts the desktop back. Someone who is working is never signed out for being "idle".
+- **Any sleep or hibernate, however brief, ends the session at once**, with no warning. Detected by a gap of more than 20 seconds between two of the guard's 2-second wake-ups, which only happens when the whole computer was suspended. The logout is recorded at the moment the computer went to sleep, not when it woke.
+- **Kiosk startup always reclaims a session left open** by a crash, forced power-off, restart, or an update, closing it before the app shows anything interactive. The kiosk never resumes straight into a session on start.
 
-In every case, the next thing on screen is the keypad — access requires the admission number again, since the previous student's `logout_time` being unset must never be read as "still them."
+Whatever the cause, the next thing on screen is the keypad, with a notice saying why for sleep, idle and restart. Access requires the admission number again, since the previous student's `logout_time` being unset must never be read as "still them".
+
+Known limits: a student watching a video for 20 minutes without touching the keyboard or mouse is treated as idle. **Open gap:** ending a session closes the kiosk's own desktop hand-off but does **not** close programs the previous student opened under the shared Windows account, so the next student can find them (and their unsaved documents) still open. Closing them, or signing the Windows account out, on every session end is not built yet.
 
 ## Realtime events
 

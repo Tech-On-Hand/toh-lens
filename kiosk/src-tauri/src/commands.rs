@@ -254,6 +254,15 @@ pub fn record_logout(app: tauri::AppHandle, state: State<AppState>, session_uuid
 }
 
 
+/// Log Out from the floating bar, which has no idea which session is open: ends
+/// whoever is signed in and puts the kiosk back on the keypad.
+#[tauri::command]
+pub fn logout_current_session(app: tauri::AppHandle, state: State<AppState>) -> Result<(), String> {
+    let Some(session_uuid) = open_session_uuid(&state) else { return Ok(()) };
+    crate::session_guard::end_session(&app, &state, &session_uuid, crate::session_guard::EndReason::Logout, None);
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn sync_now(state: State<'_, AppState>) -> Result<SyncResult, String> {
     Ok(crate::sync::try_sync(&state).await)

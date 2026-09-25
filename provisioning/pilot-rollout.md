@@ -107,6 +107,9 @@ Tick each on the first computer, then on a sample of the rest.
 - [ ] Log in with the network unplugged, then reconnect: the session syncs and shows the right student.
 - [ ] While signed in, restart the kiosk (or the computer): it lands on the keypad with a notice, not back in the lesson.
 - [ ] While signed in, put the computer to sleep and wake it: it is signed out immediately, no warning, straight to the keypad.
+- [ ] While signed in and working on the desktop, use the computer actively for more than 20 minutes (typing, browsing): the student is **not** signed out.
+- [ ] Click **Log out** on the floating bar (it asks "Sure?"): the keypad returns; the next student's number starts a clean session and the teacher's grid shows them.
+- [ ] Leave a signed-in computer untouched: after 19 minutes the kiosk window comes forward with a countdown; touching the keyboard dismisses it, and leaving it signs the student out at 20.
 - [ ] Teacher opens a page on the student's browser; the student's active tab shows on the grid.
 - [ ] A blocked site is blocked; a focus session lets only the listed sites through and ends on time, including with the network unplugged.
 - [ ] Watch a student's screen (thumbnail, then Full view); the student sees the red banner; stopping clears it.
@@ -130,6 +133,7 @@ Tick each on the first computer, then on a sample of the rest.
 
 * No signed installers or automatic updates: every update is a reinstall (`provision-student-pc.ps1` again). Windows SmartScreen will warn about unsigned installers.
 * No relay (TURN): screen watch and broadcast need a direct path between computers plus outbound UDP to the STUN server. A network that blocks that will show "can't connect".
+* **Programs and documents a student leaves open stay open for the next student.** Signing out returns the kiosk to the keypad but does not close what the previous student was running under the shared Windows account. Until that is built, remind students to save and close their work, and treat this as a privacy risk to decide on before a wider rollout.
 * Timetable scheduling of focus sessions and rules is not built (they start when a teacher starts them).
 * The hardening script and the whole flow have not been proven on a locked-down school machine.
 * A message or hand queued while a kiosk is offline is kept on disk, but a raised hand older than 10 minutes is dropped.

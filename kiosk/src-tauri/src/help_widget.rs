@@ -1,4 +1,4 @@
-//! A small always-on-top "Ask for help" / "Chat" bar that floats over the desktop
+//! A small always-on-top "Ask for help" / "Chat" / "Log out" bar that floats over the desktop
 //! while a student is logged in. After login the kiosk window is hidden (see
 //! `shell_handoff.rs`), so without this a student would have no way to reach the
 //! teacher from the kiosk. It is a second window running the same frontend (see
@@ -8,7 +8,7 @@
 use tauri::{AppHandle, LogicalPosition, LogicalSize, Manager, WebviewWindowBuilder};
 
 const LABEL: &str = "help";
-const BAR_WIDTH: f64 = 300.0;
+const BAR_WIDTH: f64 = 520.0;
 const BAR_HEIGHT: f64 = 56.0;
 const CHAT_WIDTH: f64 = 340.0;
 const CHAT_HEIGHT: f64 = 460.0;

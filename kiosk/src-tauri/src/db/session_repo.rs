@@ -57,12 +57,19 @@ pub fn insert_login(
 }
 
 pub fn close_logout(conn: &Connection, session_uuid: &str) -> rusqlite::Result<()> {
+    close_logout_at(conn, session_uuid, &now_iso())
+}
+
+/// Ends a session at a chosen moment rather than now — for one that actually
+/// ended earlier than anyone noticed (the computer slept, so the student left when
+/// it went to sleep, not when it woke). Never earlier than the login itself.
+pub fn close_logout_at(conn: &Connection, session_uuid: &str, at: &str) -> rusqlite::Result<()> {
     let now = now_iso();
     conn.execute(
         "UPDATE login_sessions
-         SET logout_time = ?1, synced = 0, updated_at = ?1
-         WHERE session_uuid = ?2",
-        (&now, session_uuid),
+         SET logout_time = CASE WHEN login_time > ?1 THEN login_time ELSE ?1 END, synced = 0, updated_at = ?2
+         WHERE session_uuid = ?3",
+        (at, &now, session_uuid),
     )?;
     Ok(())
 }
@@ -193,6 +200,44 @@ mod tests {
 
         let still_open = find_open_session(&conn, 2).unwrap().expect("computer 2's session is untouched");
         assert_eq!(still_open.session_uuid, other.session_uuid);
+    }
+
+    fn logout_time_of(conn: &Connection, session_uuid: &str) -> String {
+        conn.query_row("SELECT logout_time FROM login_sessions WHERE session_uuid = ?1", [session_uuid], |row| row.get(0)).unwrap()
+    }
+
+    #[test]
+    fn a_session_can_be_closed_at_the_moment_it_really_ended() {
+        let conn = database();
+        let opened = insert_login(&conn, 1, 1, &student("1001")).unwrap();
+        let later = (chrono::DateTime::parse_from_rfc3339(&opened.login_time).unwrap() + chrono::Duration::minutes(7)).to_rfc3339();
+
+        close_logout_at(&conn, &opened.session_uuid, &later).unwrap();
+
+        assert_eq!(logout_time_of(&conn, &opened.session_uuid), later);
+        assert!(find_open_session(&conn, 1).unwrap().is_none());
+    }
+
+    #[test]
+    fn a_session_is_never_closed_before_it_began() {
+        let conn = database();
+        let opened = insert_login(&conn, 1, 1, &student("1001")).unwrap();
+        let before = (chrono::DateTime::parse_from_rfc3339(&opened.login_time).unwrap() - chrono::Duration::seconds(2)).to_rfc3339();
+
+        close_logout_at(&conn, &opened.session_uuid, &before).unwrap();
+
+        assert_eq!(logout_time_of(&conn, &opened.session_uuid), opened.login_time);
+    }
+
+    #[test]
+    fn a_closed_session_is_queued_for_sync_again() {
+        let conn = database();
+        let opened = insert_login(&conn, 1, 1, &student("1001")).unwrap();
+        mark_synced(&conn, &[opened.session_uuid.clone()]).unwrap();
+
+        close_logout_at(&conn, &opened.session_uuid, &now_iso()).unwrap();
+
+        assert_eq!(unsynced_count(&conn).unwrap(), 1);
     }
 
     #[test]

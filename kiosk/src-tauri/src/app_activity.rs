@@ -81,6 +81,11 @@ fn is_own_process(process: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// Seconds since the last keyboard or mouse input anywhere on the computer.
+pub fn system_idle_seconds() -> u64 {
+    platform::idle_seconds()
+}
+
 fn open_session_uuid(state: &AppState) -> Option<String> {
     let conn = state.db.lock().unwrap();
     let config = config_repo::get_config(&conn).ok().flatten()?;

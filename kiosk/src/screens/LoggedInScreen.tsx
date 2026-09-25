@@ -1,62 +1,73 @@
-import { useCallback, useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ScreenWatchIndicator } from "../components/ScreenWatchIndicator";
 import { SyncStatusBadge } from "../components/SyncStatusBadge";
 import { commandErrorMessage, hideHelpWidget, recordLogout, showHelpWidget } from "../lib/commands";
-import { useIdleTimeout } from "../lib/useIdleTimeout";
-import { useSleepDetector } from "../lib/useSleepDetector";
 import type { LoginSessionRecord } from "../types";
 
-const SLEEP_NOTICE = "This computer went to sleep, so you were signed out. Please sign in again.";
+// Why the keypad is back, by the reason the native session guard gives. A plain
+// Log Out needs no explanation.
+const NOTICES: Record<string, string | undefined> = {
+  sleep: "This computer went to sleep, so you were signed out. Please sign in again.",
+  idle: "You were signed out because the computer was idle. Please sign in again.",
+};
 
 interface LoggedInScreenProps {
   session: LoginSessionRecord;
   onLogout: (notice?: string) => void;
 }
 
-// A typical lesson period is long enough that these defaults shouldn't
-// interrupt real use, while still closing forgotten sessions well before
-// the next student sits down.
-const IDLE_TIMEOUT_MS = 20 * 60 * 1000;
-const IDLE_WARNING_MS = 60 * 1000;
-
+/**
+ * Idle and sleep are decided by the kiosk's native side (session_guard.rs), not in
+ * this page: the page is hidden behind the desktop while a student works, so it
+ * never sees their keyboard or mouse, and hidden pages have their timers slowed.
+ * This screen just reports what the guard says: a countdown before an idle
+ * sign-out, and the end of the session (from idle, sleep, or the floating bar's
+ * Log Out button).
+ */
 export function LoggedInScreen({ session, onLogout }: LoggedInScreenProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [idleSecondsLeft, setIdleSecondsLeft] = useState<number | null>(null);
 
-  const handleLogout = useCallback(async (notice?: string) => {
+  const onLogoutRef = useRef(onLogout);
+  onLogoutRef.current = onLogout;
+
+  const handleLogout = useCallback(async () => {
     setIsLoggingOut(true);
     setError(null);
 
     try {
       await recordLogout(session.session_uuid);
-      onLogout(notice);
+      onLogoutRef.current();
     } catch (err) {
       setError(commandErrorMessage(err));
       setIsLoggingOut(false);
     }
-  }, [session.session_uuid, onLogout]);
+  }, [session.session_uuid]);
 
   // The kiosk window is hidden behind the desktop while a student is logged in,
-  // so the way to reach the teacher is a small floating button instead.
+  // so the way to reach the teacher (and to sign out) is a small floating bar.
   useEffect(() => {
     void showHelpWidget().catch(() => {});
     return () => void hideHelpWidget().catch(() => {});
   }, []);
 
-  const { isWarning, secondsRemaining } = useIdleTimeout({
-    idleMs: IDLE_TIMEOUT_MS,
-    warningMs: IDLE_WARNING_MS,
-    onIdle: handleLogout,
-  });
+  useEffect(() => {
+    let disposed = false;
+    const unlisteners: Array<() => void> = [];
+    const track = (pending: Promise<() => void>) =>
+      void pending.then((unlisten) => (disposed ? unlisten() : unlisteners.push(unlisten))).catch(() => {});
 
-  // FR-1 identity risk: sleep/hibernate pauses this window's timers, so a
-  // different student could wake the machine and carry on as whoever was
-  // signed in, with none of the idle-timeout warning's grace period. Signs
-  // out at once, no warning, the moment a suspected sleep is detected.
-  const forceLogoutAfterSleep = useCallback(() => {
-    void handleLogout(SLEEP_NOTICE);
-  }, [handleLogout]);
-  useSleepDetector(forceLogoutAfterSleep);
+    track(listen<{ reason: string }>("session-ended", (event) => onLogoutRef.current(NOTICES[event.payload.reason])));
+    track(listen<{ seconds_remaining: number }>("session-idle-warning", (event) => setIdleSecondsLeft(event.payload.seconds_remaining)));
+    track(listen("session-idle-cleared", () => setIdleSecondsLeft(null)));
+
+    return () => {
+      disposed = true;
+      unlisteners.forEach((unlisten) => unlisten());
+    };
+  }, []);
 
   return (
     <div className="screen loggedin-screen">
@@ -72,9 +83,9 @@ export function LoggedInScreen({ session, onLogout }: LoggedInScreenProps) {
         {isLoggingOut ? "Logging out…" : "Log Out"}
       </button>
 
-      {isWarning && !isLoggingOut && (
+      {idleSecondsLeft !== null && !isLoggingOut && (
         <div className="idle-warning" role="alert">
-          Logging out in {secondsRemaining}s due to inactivity — tap anywhere to stay logged in.
+          Logging out in {idleSecondsLeft}s because nobody is using this computer — press any key or move the mouse to stay signed in.
         </div>
       )}
     </div>

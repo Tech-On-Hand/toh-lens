@@ -12,6 +12,7 @@ mod policy_sync;
 mod provisioning;
 mod screen_broadcast;
 mod screen_share;
+mod session_guard;
 mod shell_handoff;
 mod state;
 mod sync;
@@ -45,6 +46,7 @@ pub fn run() {
             credential_store::migrate_legacy_token(&connection);
             let state = AppState::new(connection);
             app.manage(state.clone());
+            session_guard::start(app.handle().clone(), state.clone());
 
             let bridge_state = state.clone();
             tauri::async_runtime::spawn(async move {
@@ -89,6 +91,7 @@ pub fn run() {
             commands::validate_admission_number,
             commands::record_login,
             commands::record_logout,
+            commands::logout_current_session,
             commands::reclaim_stale_session,
             commands::sync_now,
             commands::get_sync_status,
@@ -125,6 +128,7 @@ pub fn run() {
             commands::validate_admission_number,
             commands::record_login,
             commands::record_logout,
+            commands::logout_current_session,
             commands::reclaim_stale_session,
             commands::sync_now,
             commands::get_sync_status,

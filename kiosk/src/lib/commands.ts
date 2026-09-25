@@ -117,6 +117,11 @@ export function releaseWindow(): Promise<void> {
   return invoke("release_window");
 }
 
+/** Log Out from the floating bar: ends whoever is signed in and returns the kiosk to the keypad. */
+export function logoutCurrentSession(): Promise<void> {
+  return invoke("logout_current_session");
+}
+
 export function showHelpWidget(): Promise<void> {
   return invoke("show_help_widget");
 }

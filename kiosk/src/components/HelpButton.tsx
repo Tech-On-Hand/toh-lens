@@ -66,7 +66,7 @@ export function HelpButton() {
   if (request) {
     return (
       <div className="help-button help-button--waiting">
-        <span>{request.status === "queued" ? "Will send when you're back online" : "Teacher notified"}</span>
+        <span>{request.status === "queued" ? "Sends when online" : "Teacher notified"}</span>
         <button type="button" onClick={cancel} disabled={busy}>
           Cancel
         </button>
