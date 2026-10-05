@@ -1,6 +1,5 @@
 import { Head, router } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
-import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -42,7 +41,7 @@ export default function KlasSetup({ schools, staff }: Props) {
         router[method](path, data, { preserveScroll: true });
     };
 
-    return <AppLayout breadcrumbs={[{ title: 'Klas Setup', href: '/admin/klas' }]}>
+    return <>
         <Head title="TOH Klas Setup" />
         <div className="flex h-full flex-1 flex-col gap-6 p-4">
             <div><h1 className="text-2xl font-semibold">TOH Klas foundation</h1><p className="text-muted-foreground">Manage physical classrooms, staff access, and secure device enrollment.</p></div>
@@ -54,5 +53,14 @@ export default function KlasSetup({ schools, staff }: Props) {
             </div>
             <Card><CardHeader><CardTitle>Classrooms</CardTitle></CardHeader><CardContent className="grid gap-4 lg:grid-cols-2">{classrooms.map(room => <div key={room.id} className="rounded-lg border p-4"><div className="mb-3"><strong>{room.name}</strong><p className="text-sm text-muted-foreground">{room.school.name} · {room.computers_count} devices</p></div><form className="flex gap-2" onSubmit={e => { e.preventDefault(); submit(`/admin/klas/classrooms/${room.id}/staff`, e.currentTarget, 'put'); }}><NativeSelect name="user_id" required><option value="">Assign staff</option>{staff.map(user => <option key={user.id} value={user.id}>{user.name}</option>)}</NativeSelect><NativeSelect name="role"><option value="primary_teacher">Primary</option><option value="assistant_teacher">Assistant</option><option value="observer">Observer</option></NativeSelect><Button type="submit" variant="outline">Assign</Button></form></div>)}</CardContent></Card>
         </div>
-    </AppLayout>;
+    </>;
 }
+
+KlasSetup.layout = {
+    breadcrumbs: [
+        {
+            title: 'Klas Setup',
+            href: '/admin/klas',
+        },
+    ],
+};
