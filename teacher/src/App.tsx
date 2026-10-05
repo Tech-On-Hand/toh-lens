@@ -21,7 +21,7 @@ function Login({ onLogin }: { onLogin: (session: TeacherSession) => void }) {
 
   return <main className="login-shell">
     <section className="login-panel">
-      <div className="brand-mark">K</div>
+      <img className="brand-mark" src="/toh-mark.svg" alt="" />
       <p className="eyebrow">TECH ON HAND</p>
       <h1>TOH Klas</h1>
       <p className="muted">Your classroom, clear at a glance.</p>
@@ -77,7 +77,7 @@ function ClassroomView({ session, onLogout }: { session: TeacherSession; onLogou
   const handsUp = devices.filter(device => device.help_request).length;
   return <div className="app-shell">
     <aside>
-      <div className="brand"><div className="brand-mark small">K</div><strong>TOH Klas</strong></div>
+      <div className="brand"><img className="brand-mark small" src="/toh-mark.svg" alt="" /><strong>TOH Klas</strong></div>
       <p className="nav-label">CLASSROOMS</p>
       {classrooms.map(classroom => <button key={classroom.id} className={selected?.id === classroom.id ? "room active" : "room"} onClick={() => setSelected(classroom)}>
         <span>{classroom.name}</span><small>{classroom.school.name}</small>
