@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\EnsureDeviceActive;
 use App\Http\Middleware\EnsureIsAdministrator;
@@ -23,7 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ['prefix' => 'api/v1', 'middleware' => ['api', 'auth:sanctum']],
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
+        $middleware->encryptCookies(except: ['sidebar_state']);
 
         // SDP text is significant down to its line terminators (RFC 4566
         // requires CRLF, including after the last line) — the default global
@@ -32,7 +31,6 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trimStrings(except: ['offer.sdp', 'answer.sdp']);
 
         $middleware->web(append: [
-            HandleAppearance::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);
