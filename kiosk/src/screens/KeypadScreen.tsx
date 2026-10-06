@@ -43,6 +43,7 @@ export function KeypadScreen({ onLogin, notice }: KeypadScreenProps) {
       <ScreenWatchIndicator />
       <SyncStatusBadge />
 
+      <img className="brand-mark" src="/toh-mark.svg" alt="" />
       <h1>Enter your admission number</h1>
 
       <NumericKeypad value={value} onChange={handleChange} onSubmit={handleSubmit} />

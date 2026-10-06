@@ -8,7 +8,7 @@
 use tauri::{AppHandle, LogicalPosition, LogicalSize, Manager, WebviewWindowBuilder};
 
 const LABEL: &str = "help";
-const BAR_WIDTH: f64 = 520.0;
+const BAR_WIDTH: f64 = 400.0;
 const BAR_HEIGHT: f64 = 56.0;
 const CHAT_WIDTH: f64 = 340.0;
 const CHAT_HEIGHT: f64 = 460.0;

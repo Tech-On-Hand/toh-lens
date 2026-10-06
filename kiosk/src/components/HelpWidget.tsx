@@ -47,6 +47,10 @@ export function HelpWidget() {
 
   return (
     <div className="help-widget">
+      {/* Lets a student drag the bar elsewhere if it's covering something they need. */}
+      <div className="widget-drag-handle" data-tauri-drag-region="" title="Drag to move">
+        <span /><span /><span /><span /><span /><span />
+      </div>
       <HelpButton />
       <button type="button" className={`chat-open ${chat.unread > 0 ? "chat-open--unread" : ""}`} onClick={() => toggle(true)}>
         Chat{chat.unread > 0 ? ` (${chat.unread})` : ""}

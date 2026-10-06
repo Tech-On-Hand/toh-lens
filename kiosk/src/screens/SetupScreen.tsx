@@ -47,6 +47,7 @@ export function SetupScreen({ onComplete, initialError }: SetupScreenProps) {
 
   return (
     <div className="screen setup-screen">
+      <img className="brand-mark" src="/toh-mark.svg" alt="" />
       <h1>TOH Klas — Student Agent</h1>
       <p>Enroll this computer using the one-time code supplied by an administrator.</p>
 

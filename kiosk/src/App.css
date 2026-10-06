@@ -13,7 +13,7 @@
   font-size: 18px;
   line-height: 1.4;
   color: #0f0f0f;
-  background-color: var(--toh-cream);
+  background-color: #ffffff;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -48,6 +48,20 @@ button {
   padding: 2rem;
   text-align: center;
   gap: 1rem;
+  background-image:
+    url('/blobs/toh-blob-blue.svg'),
+    url('/blobs/toh-blob-purple.svg'),
+    url('/blobs/toh-blob-green.svg'),
+    url('/blobs/toh-blob-orange.svg');
+  background-repeat: no-repeat;
+  background-position: -6% -8%, 106% -6%, -8% 104%, 104% 102%;
+  background-size: 260px, 220px, 240px, 200px;
+  background-color: #ffffff;
+}
+
+.screen .brand-mark {
+  width: 64px;
+  height: 64px;
 }
 
 .screen h1 {
@@ -399,7 +413,7 @@ button {
   align-items: center;
   justify-content: center;
   height: 100vh;
-  padding: 0 0.5rem;
+  padding: 0 0.25rem;
   background: #ffffff;
   border: 2px solid var(--toh-orange);
   border-radius: 12px;
@@ -409,6 +423,22 @@ button {
 
 .help-widget .help-button {
   margin-top: 0;
+}
+
+.widget-drag-handle {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 3px;
+  padding: 0 0.15rem;
+  flex-shrink: 0;
+  cursor: move;
+}
+
+.widget-drag-handle span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #c7c7c7;
 }
 
 /* --- Chat --- */
@@ -553,29 +583,4 @@ button {
 
 .chat-form button:disabled {
   opacity: 0.5;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #f6f6f6;
-    background-color: var(--toh-navy);
-  }
-
-  .numeric-keypad-display,
-  .numeric-keypad-key {
-    background: #2b2b2b;
-    color: #f6f6f6;
-    border-color: #444;
-  }
-
-  .setup-form input {
-    background: #2b2b2b;
-    color: #f6f6f6;
-    border-color: #444;
-  }
-
-  .sync-status-badge {
-    background: #2b2b2bcc;
-    color: #f6f6f6;
-  }
 }

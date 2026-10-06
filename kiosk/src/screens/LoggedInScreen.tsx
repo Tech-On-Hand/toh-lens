@@ -74,6 +74,7 @@ export function LoggedInScreen({ session, onLogout }: LoggedInScreenProps) {
       <ScreenWatchIndicator />
       <SyncStatusBadge />
 
+      <img className="brand-mark" src="/toh-mark.svg" alt="" />
       <h1>Welcome, {session.full_name}</h1>
       <p>You're logged in on this computer. Have a great lesson!</p>
 
