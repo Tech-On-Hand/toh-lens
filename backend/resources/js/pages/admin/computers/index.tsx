@@ -1,4 +1,5 @@
 import { Form, Head, usePage } from '@inertiajs/react';
+import { KeyRound, Monitor, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import ComputerController from '@/actions/App/Http/Controllers/Admin/ComputerController';
 import Heading from '@/components/heading';
@@ -42,7 +43,7 @@ export default function ComputersIndex({
             <Head title="Devices" />
 
             <div className="space-y-6 p-4">
-                <Heading title="Devices" description="Manage the permanent identity and health of each classroom computer." />
+                <Heading title="Devices" description="Manage the permanent identity and health of each classroom computer." icon={Monitor} />
 
                 {issuedToken && (
                     <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
@@ -111,7 +112,7 @@ export default function ComputersIndex({
                                         <InputError message={errors.role} />
                                     </div>
 
-                                    <Button disabled={processing}>Add computer</Button>
+                                    <Button disabled={processing}><Plus /> Add computer</Button>
                                 </>
                             )}
                         </Form>
@@ -187,7 +188,7 @@ export default function ComputersIndex({
                                             }
                                         }}
                                     >
-                                        {computer.tokens_count > 0 ? 'Reissue token' : 'Issue token'}
+                                        <KeyRound /> {computer.tokens_count > 0 ? 'Reissue token' : 'Issue token'}
                                     </Button>
                                 )}
                             </Form>
@@ -199,13 +200,14 @@ export default function ComputersIndex({
                                         size="sm"
                                         variant="destructive"
                                         disabled={processing}
+                                        title={`Delete "${computer.name}"`}
                                         onClick={(e) => {
                                             if (!confirm(`Delete "${computer.name}"?`)) {
                                                 e.preventDefault();
                                             }
                                         }}
                                     >
-                                        Delete
+                                        <Trash2 />
                                     </Button>
                                 )}
                             </Form>

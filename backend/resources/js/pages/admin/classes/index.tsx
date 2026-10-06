@@ -1,4 +1,5 @@
 import { Form, Head } from '@inertiajs/react';
+import { GraduationCap, Plus, Trash2 } from 'lucide-react';
 import SchoolClassController from '@/actions/App/Http/Controllers/Admin/SchoolClassController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
@@ -25,7 +26,7 @@ export default function ClassesIndex({
             <Head title="Classes" />
 
             <div className="space-y-6 p-4">
-                <Heading title="Classes" description="Groups students and computers under a school and (optionally) a teacher." />
+                <Heading title="Classes" description="Groups students and computers under a school and (optionally) a teacher." icon={GraduationCap} />
 
                 <Card>
                     <CardHeader>
@@ -69,7 +70,7 @@ export default function ClassesIndex({
                                         <InputError message={errors.teacher_id} />
                                     </div>
 
-                                    <Button disabled={processing}>Add class</Button>
+                                    <Button disabled={processing}><Plus /> Add class</Button>
                                 </>
                             )}
                         </Form>
@@ -109,7 +110,7 @@ export default function ClassesIndex({
                                                         }
                                                     }}
                                                 >
-                                                    Delete
+                                                    <Trash2 /> Delete
                                                 </Button>
                                             )}
                                         </Form>

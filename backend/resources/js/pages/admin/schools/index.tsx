@@ -1,4 +1,5 @@
 import { Form, Head, Link } from '@inertiajs/react';
+import { Plus, School as SchoolIcon, Trash2 } from 'lucide-react';
 import SchoolController from '@/actions/App/Http/Controllers/Admin/SchoolController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
@@ -17,7 +18,7 @@ export default function SchoolsIndex({ schools, organizations }: { schools: Scho
             <Head title="Schools" />
 
             <div className="space-y-6 p-4">
-                <Heading title="Schools" description="Top-level scoping entity for classes, students, and computers." />
+                <Heading title="Schools" description="Top-level scoping entity for classes, students, and computers." icon={SchoolIcon} />
 
                 <Card>
                     <CardHeader>
@@ -58,7 +59,7 @@ export default function SchoolsIndex({ schools, organizations }: { schools: Scho
                                             <Input id="name" name="name" placeholder="Demo Primary School" required />
                                             <InputError message={errors.name} />
                                         </div>
-                                        <Button disabled={processing}>Add school</Button>
+                                        <Button disabled={processing}><Plus /> Add school</Button>
                                     </>
                                 )}
                             </Form>
@@ -123,7 +124,7 @@ export default function SchoolsIndex({ schools, organizations }: { schools: Scho
                                                             }
                                                         }}
                                                     >
-                                                        Delete
+                                                        <Trash2 /> Delete
                                                     </Button>
                                                 )}
                                             </Form>

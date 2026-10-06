@@ -1,4 +1,5 @@
 import { Head, router } from '@inertiajs/react';
+import { Activity } from 'lucide-react';
 import { useEffect } from 'react';
 import Heading from '@/components/heading';
 import { NativeSelect } from '@/components/native-select';
@@ -43,6 +44,7 @@ export default function LiveSessionsIndex({
                 <Heading
                     title="Live Sessions"
                     description="Everyone currently logged in on a kiosk right now, across all computers. Refreshes automatically."
+                    icon={Activity}
                 />
 
                 <div className="flex items-center gap-2">
@@ -66,7 +68,10 @@ export default function LiveSessionsIndex({
                         ))}
                     </NativeSelect>
 
-                    <span className="text-muted-foreground ml-auto text-sm">{sessions.length} logged in</span>
+                    <span className="ml-auto flex items-center gap-1.5 text-sm">
+                        {sessions.length > 0 && <span className="size-2 rounded-full bg-(--toh-green)" />}
+                        <span className="text-muted-foreground">{sessions.length} logged in</span>
+                    </span>
                 </div>
 
                 <div className="overflow-x-auto rounded-lg border">

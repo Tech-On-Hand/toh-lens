@@ -1,4 +1,5 @@
 import { Form, Head, router, usePage } from '@inertiajs/react';
+import { Plus, Trash2, Upload, Users } from 'lucide-react';
 import StudentController from '@/actions/App/Http/Controllers/Admin/StudentController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
@@ -40,7 +41,7 @@ export default function StudentsIndex({
             <Head title="Students" />
 
             <div className="space-y-6 p-4">
-                <Heading title="Students" description="Roster used to validate admission numbers on the kiosk gate." />
+                <Heading title="Students" description="Roster used to validate admission numbers on the kiosk gate." icon={Users} />
 
                 <div className="flex items-center gap-2">
                     <Label htmlFor="school_filter" className="text-sm">
@@ -117,7 +118,7 @@ export default function StudentsIndex({
                                         <InputError message={errors.full_name} />
                                     </div>
 
-                                    <Button disabled={processing}>Add student</Button>
+                                    <Button disabled={processing}><Plus /> Add student</Button>
                                 </>
                             )}
                         </Form>
@@ -165,7 +166,7 @@ export default function StudentsIndex({
                                         <InputError message={errors.csv} />
                                     </div>
 
-                                    <Button disabled={processing}>{processing ? 'Importing…' : 'Import'}</Button>
+                                    <Button disabled={processing}><Upload /> {processing ? 'Importing…' : 'Import'}</Button>
                                 </>
                             )}
                         </Form>
@@ -252,13 +253,14 @@ export default function StudentsIndex({
                                         size="sm"
                                         variant="destructive"
                                         disabled={processing}
+                                        title={`Delete ${student.full_name}`}
                                         onClick={(e) => {
                                             if (!confirm(`Delete ${student.full_name}?`)) {
                                                 e.preventDefault();
                                             }
                                         }}
                                     >
-                                        Delete
+                                        <Trash2 />
                                     </Button>
                                 )}
                             </Form>

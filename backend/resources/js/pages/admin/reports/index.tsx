@@ -1,4 +1,5 @@
 import { Head, router } from '@inertiajs/react';
+import { BarChart3 } from 'lucide-react';
 import { useState } from 'react';
 import Heading from '@/components/heading';
 import { NativeSelect } from '@/components/native-select';
@@ -41,6 +42,7 @@ export default function ReportsIndex({
                 <Heading
                     title="M&E Reports"
                     description="Per-class usage summary computed from kiosk login sessions. Application-level breakdown will appear once LanSchool Air activity data is integrated."
+                    icon={BarChart3}
                 />
 
                 <Card>
@@ -78,7 +80,7 @@ export default function ReportsIndex({
                                 <Input id="to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
                             </div>
 
-                            <Button type="submit">View report</Button>
+                            <Button type="submit"><BarChart3 /> View report</Button>
                         </form>
                     </CardContent>
                 </Card>

@@ -1,4 +1,5 @@
 import { Form, Head } from '@inertiajs/react';
+import { Lock } from 'lucide-react';
 import { useRef } from 'react';
 import SecurityController from '@/actions/App/Http/Controllers/Settings/SecurityController';
 import Heading from '@/components/heading';
@@ -33,6 +34,7 @@ export default function Security(props: Props) {
                     variant="small"
                     title="Update password"
                     description="Ensure your account is using a long, random password to stay secure"
+                    icon={Lock}
                 />
 
                 <Form

@@ -1,4 +1,5 @@
 import { Link } from '@inertiajs/react';
+import { Lock, Settings as SettingsIcon, User } from 'lucide-react';
 import type { PropsWithChildren } from 'react';
 import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
@@ -13,12 +14,12 @@ const sidebarNavItems: NavItem[] = [
     {
         title: 'Profile',
         href: edit(),
-        icon: null,
+        icon: User,
     },
     {
         title: 'Security',
         href: editSecurity(),
-        icon: null,
+        icon: Lock,
     },
 ];
 
@@ -30,6 +31,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
             <Heading
                 title="Settings"
                 description="Manage your profile and account settings"
+                icon={SettingsIcon}
             />
 
             <div className="flex flex-col lg:flex-row lg:space-x-12">
