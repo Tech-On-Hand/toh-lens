@@ -6,7 +6,7 @@ The backend is the source of truth for the whole TOH Klas system: the kiosk app,
 
 ## Requirements
 
-- PHP 8.3+ with the usual Laravel extensions (`pdo_mysql`, `redis` if using phpredis, `mbstring`, `fileinfo`, `gd` or `imagick`)
+- PHP 8.4+ with the usual Laravel extensions (`pdo_mysql`, `redis` if using phpredis, `mbstring`, `fileinfo`, `gd` or `imagick`)
 - Composer
 - Node 20+ (to build frontend assets — not needed at runtime after that)
 - MySQL (or another Laravel-supported database — MySQL is what's configured by default)
@@ -22,7 +22,7 @@ Everything below assumes a fresh Ubuntu server with a non-root sudo user already
 sudo apt update && sudo apt upgrade -y
 ```
 
-### PHP 8.3
+### PHP 8.4
 
 Ubuntu's own repos usually ship an older PHP than Laravel needs, so use the `ondrej/php` PPA:
 
@@ -30,8 +30,8 @@ Ubuntu's own repos usually ship an older PHP than Laravel needs, so use the `ond
 sudo apt install -y software-properties-common
 sudo add-apt-repository -y ppa:ondrej/php
 sudo apt update
-sudo apt install -y php8.3 php8.3-fpm php8.3-cli php8.3-mysql php8.3-redis \
-    php8.3-mbstring php8.3-xml php8.3-curl php8.3-zip php8.3-gd php8.3-bcmath
+sudo apt install -y php8.4 php8.4-fpm php8.4-cli php8.4-mysql php8.4-redis \
+    php8.4-mbstring php8.4-xml php8.4-curl php8.4-zip php8.4-gd php8.4-bcmath
 ```
 
 ### Composer
@@ -96,7 +96,7 @@ sudo ufw enable
 ```bash
 sudo mkdir -p /var/www/toh-lens
 sudo chown deploy:deploy /var/www/toh-lens
-git clone <your-repo-url> /var/www/toh-lens
+git clone https://github.com/Tech-On-Hand/toh-lens.git /var/www/toh-lens
 cd /var/www/toh-lens/backend
 ```
 
@@ -178,7 +178,7 @@ server {
     }
 
     location ~ \.php$ {
-        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+        fastcgi_pass unix:/run/php/php8.4-fpm.sock;
         fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
         include fastcgi_params;
     }
@@ -313,5 +313,5 @@ php artisan route:cache
 php artisan view:cache
 php artisan queue:restart              # queue worker finishes its current job, then exits — systemd restarts it with the new code (Restart=always)
 sudo systemctl restart toh-lens-reverb # Reverb has no equivalent graceful-restart signal, so restart it directly
-sudo systemctl reload php8.3-fpm       # drop any cached opcache state from the old code
+sudo systemctl reload php8.4-fpm       # drop any cached opcache state from the old code
 ```

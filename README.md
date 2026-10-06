@@ -6,6 +6,8 @@
 
 <p align="center">
   Classroom management software for <a href="https://techonhand.tech">Tech On Hand</a>'s donated computer labs.
+  <br>
+  <a href="https://github.com/Tech-On-Hand/toh-lens">github.com/Tech-On-Hand/toh-lens</a>
 </p>
 
 ---
@@ -74,6 +76,11 @@ flowchart LR
 Domain model: `Organization → School → { Classroom (physical room) → Device, Class (cohort) → Student }`, with a time-bounded `Student Session` linking a Student + Device + Classroom whenever someone's actually logged in. See [`toh-klas-architecture.md`](toh-klas-architecture.md) for the full picture, [`toh-klas-contracts.md`](toh-klas-contracts.md) for the API/event contracts between apps, and [`toh-klas-roadmap.md`](toh-klas-roadmap.md) for what's shipped vs. planned.
 
 ## Getting started
+
+```bash
+git clone https://github.com/Tech-On-Hand/toh-lens.git
+cd toh-lens
+```
 
 Each app runs independently. You'll generally want the backend running first, since the other three talk to it.
 
