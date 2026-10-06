@@ -1,4 +1,5 @@
 import { listen } from "@tauri-apps/api/event";
+import { BarChart3, LayoutGrid, List, Megaphone, Monitor, ShieldAlert, ShieldCheck, TrendingUp } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import * as api from "./api";
 import AnnouncementPanel from "./AnnouncementPanel";
@@ -80,13 +81,14 @@ function ClassroomView({ session, onLogout }: { session: TeacherSession; onLogou
       <div className="brand"><img className="brand-mark small" src="/toh-mark.svg" alt="" /><strong>TOH Klas</strong></div>
       <p className="nav-label">CLASSROOMS</p>
       {classrooms.map(classroom => <button key={classroom.id} className={selected?.id === classroom.id ? "room active" : "room"} onClick={() => setSelected(classroom)}>
-        <span>{classroom.name}</span><small>{classroom.school.name}</small>
+        <Monitor className="room-icon" size={18} />
+        <div><span>{classroom.name}</span><small>{classroom.school.name}</small></div>
       </button>)}
       <div className="profile"><span>{session.user.name}</span><small>{session.user.email}</small><button onClick={onLogout}>Sign out</button></div>
     </aside>
     <main className="classroom-main">
       <header><div><p className="eyebrow">{selected?.school.name ?? "YOUR SCHOOL"}</p><h1>{selected?.name ?? "No classroom assigned"}</h1></div>
-        <div className="header-actions"><span className={`connection ${connection.toLowerCase()}`}>● {connection}</span><button onClick={() => setReportOpen(true)}>Reports</button>{session.is_administrator && <button onClick={() => setAdminPanel("impact")}>Impact</button>}{session.is_administrator && <button onClick={() => setAdminPanel("fleet")}>Fleet</button>}{session.is_administrator && <button onClick={() => setAdminPanel("audit")}>Audit</button>}<button onClick={() => setAnnounceOpen(true)}>Announce</button><button onClick={() => setPolicyOpen(true)}>Focus &amp; blocked sites</button><button onClick={() => setView(view === "grid" ? "list" : "grid")}>{view === "grid" ? "List view" : "Grid view"}</button></div>
+        <div className="header-actions"><span className={`connection ${connection.toLowerCase()}`}>● {connection}</span><button onClick={() => setReportOpen(true)}><BarChart3 size={15} />Reports</button>{session.is_administrator && <button onClick={() => setAdminPanel("impact")}><TrendingUp size={15} />Impact</button>}{session.is_administrator && <button onClick={() => setAdminPanel("fleet")}><Monitor size={15} />Fleet</button>}{session.is_administrator && <button onClick={() => setAdminPanel("audit")}><ShieldCheck size={15} />Audit</button>}<button onClick={() => setAnnounceOpen(true)}><Megaphone size={15} />Announce</button><button onClick={() => setPolicyOpen(true)}><ShieldAlert size={15} />Focus &amp; blocked sites</button><button onClick={() => setView(view === "grid" ? "list" : "grid")}>{view === "grid" ? <List size={15} /> : <LayoutGrid size={15} />}{view === "grid" ? "List view" : "Grid view"}</button></div>
       </header>
       <section className="summary"><div><strong>{devices.length}</strong><span>Devices</span></div><div><strong>{online}</strong><span>Online now</span></div><div><strong>{devices.filter(d => d.active_session).length}</strong><span>Active students</span></div><div className={handsUp > 0 ? "needs-help" : undefined}><strong>{handsUp}</strong><span>Need help</span></div></section>
       <section className={view === "grid" ? "device-grid" : "device-list"}>
