@@ -119,10 +119,10 @@
    not used on dense/tabular admin pages, where it would compete with data. */
 .toh-pattern-bg {
     background-image:
-        url('/blobs/toh-blob-blue.svg'),
-        url('/blobs/toh-blob-purple.svg'),
-        url('/blobs/toh-blob-green.svg'),
-        url('/blobs/toh-blob-orange.svg');
+        url('../images/blobs/toh-blob-blue.svg'),
+        url('../images/blobs/toh-blob-purple.svg'),
+        url('../images/blobs/toh-blob-green.svg'),
+        url('../images/blobs/toh-blob-orange.svg');
     background-repeat: no-repeat;
     background-position: -6% -8%, 106% -6%, -8% 104%, 104% 102%;
     background-size: 260px, 220px, 240px, 200px;
