@@ -5,6 +5,13 @@
 @source '../views';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 
+/* The admin is light-only (dark mode was removed). Without this override,
+   Tailwind v4 falls back to its own `dark:` implementation driven by the
+   OS's prefers-color-scheme — not what we want for the leftover `dark:`
+   classes still scattered through the codebase, which should stay fully
+   inert regardless of the viewer's OS theme. ".dark-never" matches nothing. */
+@custom-variant dark (&:is(.dark-never *));
+
 @theme {
     --font-sans:
         'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
