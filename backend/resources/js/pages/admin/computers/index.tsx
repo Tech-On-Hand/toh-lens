@@ -43,7 +43,7 @@ export default function ComputersIndex({
             <Head title="Devices" />
 
             <div className="space-y-6 p-4">
-                <Heading title="Devices" description="Manage the permanent identity and health of each classroom computer." icon={Monitor} />
+                <Heading title="Devices" description="Manage the permanent identity and health of each classroom computer." icon={Monitor} accent="--toh-blue" />
 
                 {issuedToken && (
                     <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">

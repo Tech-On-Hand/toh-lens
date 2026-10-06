@@ -37,6 +37,7 @@ export default function Profile({
                     title="Profile"
                     description="Update your name and email address"
                     icon={User}
+                    accent="--toh-blue"
                 />
 
                 <Form

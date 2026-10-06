@@ -10,14 +10,17 @@ import { index as schoolsIndex } from '@/routes/admin/schools';
 import { index as studentsIndex } from '@/routes/admin/students';
 import { dashboard } from '@/routes';
 
-const links: { title: string; description: string; href: string; icon: LucideIcon }[] = [
-    { title: 'Klas Setup', description: 'Classrooms, staff access, device enrollment', href: '/admin/klas', icon: Radio },
-    { title: 'Schools', description: 'Top-level scoping for classes and students', href: schoolsIndex().url, icon: School },
-    { title: 'Classes', description: 'Groups under a school and teacher', href: classesIndex().url, icon: GraduationCap },
-    { title: 'Students', description: 'Roster for kiosk admission numbers', href: studentsIndex().url, icon: Users },
-    { title: 'Devices', description: 'Identity and health of classroom computers', href: computersIndex().url, icon: Monitor },
-    { title: 'Live Sessions', description: 'Everyone logged in on a kiosk right now', href: liveIndex().url, icon: Activity },
-    { title: 'M&E Reports', description: 'Per-class usage summaries', href: reportsIndex().url, icon: BarChart3 },
+// Each section keeps the same accent wherever it shows up (this card, that
+// page's own Heading icon) — --toh-green is reserved for "live" status, so
+// it only appears on Live Sessions here.
+const links: { title: string; description: string; href: string; icon: LucideIcon; accent: string }[] = [
+    { title: 'Klas Setup', description: 'Classrooms, staff access, device enrollment', href: '/admin/klas', icon: Radio, accent: '--toh-navy' },
+    { title: 'Schools', description: 'Top-level scoping for classes and students', href: schoolsIndex().url, icon: School, accent: '--toh-blue' },
+    { title: 'Classes', description: 'Groups under a school and teacher', href: classesIndex().url, icon: GraduationCap, accent: '--toh-purple' },
+    { title: 'Students', description: 'Roster for kiosk admission numbers', href: studentsIndex().url, icon: Users, accent: '--toh-orange' },
+    { title: 'Devices', description: 'Identity and health of classroom computers', href: computersIndex().url, icon: Monitor, accent: '--toh-blue' },
+    { title: 'Live Sessions', description: 'Everyone logged in on a kiosk right now', href: liveIndex().url, icon: Activity, accent: '--toh-green' },
+    { title: 'M&E Reports', description: 'Per-class usage summaries', href: reportsIndex().url, icon: BarChart3, accent: '--toh-purple' },
 ];
 
 export default function Dashboard() {
@@ -31,13 +34,17 @@ export default function Dashboard() {
                         <Link
                             key={link.href}
                             href={link.href}
-                            className="group border-sidebar-border/70 hover:border-primary/40 hover:bg-primary/3 flex items-start gap-3 rounded-xl border p-4 transition-colors"
+                            className="group border-sidebar-border/70 flex items-start gap-3 rounded-xl border p-4 transition-colors hover:border-(--link-accent)/40 hover:bg-(--link-accent)/3"
+                            style={{ '--link-accent': `var(${link.accent})` } as React.CSSProperties}
                         >
-                            <span className="bg-primary/10 text-primary flex size-10 shrink-0 items-center justify-center rounded-lg">
+                            <span
+                                className="flex size-10 shrink-0 items-center justify-center rounded-lg"
+                                style={{ background: `color-mix(in srgb, var(${link.accent}) 12%, white)`, color: `var(${link.accent})` }}
+                            >
                                 <link.icon className="size-5" />
                             </span>
                             <span>
-                                <span className="group-hover:text-primary block font-medium">{link.title}</span>
+                                <span className="block font-medium group-hover:text-(--link-accent)">{link.title}</span>
                                 <span className="text-muted-foreground text-sm">{link.description}</span>
                             </span>
                         </Link>

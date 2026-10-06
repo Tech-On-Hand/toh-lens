@@ -35,6 +35,7 @@ export default function Security(props: Props) {
                     title="Update password"
                     description="Ensure your account is using a long, random password to stay secure"
                     icon={Lock}
+                    accent="--toh-purple"
                 />
 
                 <Form

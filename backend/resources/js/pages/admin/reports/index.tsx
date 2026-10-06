@@ -43,6 +43,7 @@ export default function ReportsIndex({
                     title="M&E Reports"
                     description="Per-class usage summary computed from kiosk login sessions. Application-level breakdown will appear once LanSchool Air activity data is integrated."
                     icon={BarChart3}
+                    accent="--toh-purple"
                 />
 
                 <Card>

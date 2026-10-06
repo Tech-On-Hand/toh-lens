@@ -18,7 +18,7 @@ export default function SchoolsIndex({ schools, organizations }: { schools: Scho
             <Head title="Schools" />
 
             <div className="space-y-6 p-4">
-                <Heading title="Schools" description="Top-level scoping entity for classes, students, and computers." icon={SchoolIcon} />
+                <Heading title="Schools" description="Top-level scoping entity for classes, students, and computers." icon={SchoolIcon} accent="--toh-blue" />
 
                 <Card>
                     <CardHeader>

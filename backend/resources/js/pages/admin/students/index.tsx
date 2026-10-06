@@ -41,7 +41,7 @@ export default function StudentsIndex({
             <Head title="Students" />
 
             <div className="space-y-6 p-4">
-                <Heading title="Students" description="Roster used to validate admission numbers on the kiosk gate." icon={Users} />
+                <Heading title="Students" description="Roster used to validate admission numbers on the kiosk gate." icon={Users} accent="--toh-orange" />
 
                 <div className="flex items-center gap-2">
                     <Label htmlFor="school_filter" className="text-sm">

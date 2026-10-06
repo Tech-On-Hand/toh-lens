@@ -45,6 +45,7 @@ export default function LiveSessionsIndex({
                     title="Live Sessions"
                     description="Everyone currently logged in on a kiosk right now, across all computers. Refreshes automatically."
                     icon={Activity}
+                    accent="--toh-green"
                 />
 
                 <div className="flex items-center gap-2">

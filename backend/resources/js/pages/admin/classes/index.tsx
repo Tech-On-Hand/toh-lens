@@ -26,7 +26,7 @@ export default function ClassesIndex({
             <Head title="Classes" />
 
             <div className="space-y-6 p-4">
-                <Heading title="Classes" description="Groups students and computers under a school and (optionally) a teacher." icon={GraduationCap} />
+                <Heading title="Classes" description="Groups students and computers under a school and (optionally) a teacher." icon={GraduationCap} accent="--toh-purple" />
 
                 <Card>
                     <CardHeader>
