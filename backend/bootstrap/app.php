@@ -22,6 +22,14 @@ return Application::configure(basePath: dirname(__DIR__))
         ['prefix' => 'api/v1', 'middleware' => ['api', 'auth:sanctum']],
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->trustProxies(
+        at: '*',
+        headers: Request::HEADER_X_FORWARDED_FOR
+            | Request::HEADER_X_FORWARDED_HOST
+            | Request::HEADER_X_FORWARDED_PORT
+            | Request::HEADER_X_FORWARDED_PROTO
+        );
+
         $middleware->encryptCookies(except: ['sidebar_state']);
 
         // SDP text is significant down to its line terminators (RFC 4566
