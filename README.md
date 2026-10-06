@@ -87,7 +87,7 @@ composer run setup   # installs deps, copies .env, generates a key, migrates, bu
 composer run dev      # runs the Laravel server, queue worker, scheduler, and Vite dev server together
 ```
 
-Visit `http://127.0.0.1:8000`. See [`provisioning/`](provisioning) if you're setting this up as a real deployment rather than local dev.
+Visit `http://127.0.0.1:8000`. For a real server rather than local dev, see [`backend/DEPLOYMENT.md`](backend/DEPLOYMENT.md) (Ubuntu server setup, systemd units, nginx, HTTPS); for turning a Windows PC into a locked-down kiosk, see [`provisioning/`](provisioning).
 
 ### Kiosk (`kiosk/`)
 
