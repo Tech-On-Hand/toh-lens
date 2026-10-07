@@ -213,6 +213,71 @@ class StudentControllerTest extends TestCase
         $this->assertSame(2, Student::where('school_id', $school->id)->count());
     }
 
+    public function test_the_downloadable_sample_csv_imports_five_students_without_issues(): void
+    {
+        $school = $this->makeSchool();
+        $admin = $this->makeSchoolAdmin($school);
+        $file = new UploadedFile(public_path('samples/students-sample.csv'), 'students-sample.csv', 'text/csv', null, true);
+
+        $this->actingAs($admin)
+            ->post(route('admin.students.import'), ['school_id' => $school->id, 'csv' => $file])
+            ->assertRedirect()
+            ->assertInertiaFlash('importIssues', []);
+
+        $this->assertSame(5, Student::where('school_id', $school->id)->where('is_active', true)->count());
+        // The sample teaches the grade + stream columns: three classes across two grades.
+        $this->assertEqualsCanonicalizing(['Grade 4 Blue', 'Grade 4 Green', 'Grade 5 Blue'], SchoolClass::pluck('name')->all());
+        $this->assertSame(2, SchoolClass::where('grade', 'Grade 5')->firstOrFail()->students()->count());
+    }
+
+    public function test_csv_import_creates_classes_from_grade_and_stream_and_reuses_them(): void
+    {
+        $school = $this->makeSchool();
+        $admin = $this->makeSchoolAdmin($school);
+        $csv = "admission_number,full_name,grade,stream\n1,A,Grade 4,Blue\n2,B,grade 4,blue\n3,C,Grade 4,Green\n4,D,Grade 5,\n";
+        $file = UploadedFile::fake()->createWithContent('roster.csv', $csv);
+
+        $this->actingAs($admin)
+            ->post(route('admin.students.import'), ['school_id' => $school->id, 'csv' => $file])
+            ->assertRedirect()
+            ->assertInertiaFlash('importIssues', []);
+
+        $this->assertEqualsCanonicalizing(['Grade 4 Blue', 'Grade 4 Green', 'Grade 5'], SchoolClass::pluck('name')->all());
+        $blue = SchoolClass::firstWhere('name', 'Grade 4 Blue');
+        $this->assertSame(['Grade 4', 'Blue'], [$blue->grade, $blue->stream]);
+        $this->assertNull(SchoolClass::firstWhere('name', 'Grade 5')->stream);
+        $this->assertSame($blue->id, Student::firstWhere('admission_number', '2')->class_id);
+        $this->assertSame(2, $blue->students()->count());
+    }
+
+    public function test_csv_import_fills_in_the_grade_of_a_class_made_before_grades_existed_without_overwriting(): void
+    {
+        $school = $this->makeSchool();
+        $admin = $this->makeSchoolAdmin($school);
+        $legacy = SchoolClass::create(['school_id' => $school->id, 'name' => 'Grade 4 Blue']);
+        $set = SchoolClass::create(['school_id' => $school->id, 'name' => 'Grade 4 Green', 'grade' => 'Year 4', 'stream' => 'G']);
+        $csv = "admission_number,full_name,grade,stream\n1,A,Grade 4,Blue\n2,B,Grade 4,Green\n";
+
+        $this->actingAs($admin)->post(route('admin.students.import'), ['school_id' => $school->id, 'csv' => UploadedFile::fake()->createWithContent('r.csv', $csv)]);
+
+        $this->assertSame(2, SchoolClass::count());
+        $this->assertSame(['Grade 4', 'Blue'], [$legacy->fresh()->grade, $legacy->fresh()->stream]);
+        $this->assertSame(['Year 4', 'G'], [$set->fresh()->grade, $set->fresh()->stream]);
+    }
+
+    public function test_csv_import_flags_a_stream_without_a_grade(): void
+    {
+        $school = $this->makeSchool();
+        $admin = $this->makeSchoolAdmin($school);
+        $csv = "admission_number,full_name,grade,stream\n1,A,,Blue\n";
+
+        $response = $this->actingAs($admin)->post(route('admin.students.import'), ['school_id' => $school->id, 'csv' => UploadedFile::fake()->createWithContent('r.csv', $csv)]);
+
+        $response->assertInertiaFlash('importIssues');
+        $this->assertSame(0, SchoolClass::count());
+        $this->assertNull(Student::first()->class_id);
+    }
+
     public function test_csv_import_reports_issues_without_failing_the_whole_batch(): void
     {
         $school = $this->makeSchool();

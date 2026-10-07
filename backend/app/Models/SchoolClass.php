@@ -8,12 +8,18 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['school_id', 'teacher_id', 'name'])]
+#[Fillable(['school_id', 'teacher_id', 'name', 'grade', 'stream'])]
 class SchoolClass extends Model
 {
     use HasFactory;
 
     protected $table = 'classes';
+
+    /** "Grade 4" + "Blue" => "Grade 4 Blue"; the label used when a class is given a grade and stream but no name. */
+    public static function composeName(?string $grade, ?string $stream): string
+    {
+        return trim(preg_replace('/\s+/', ' ', trim((string) $grade).' '.trim((string) $stream)));
+    }
 
     public function school(): BelongsTo
     {

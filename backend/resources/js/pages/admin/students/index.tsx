@@ -130,12 +130,28 @@ export default function StudentsIndex({
                         <CardTitle>Bulk import from CSV</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <p className="text-muted-foreground text-sm">
-                            Columns: <code>admission_number</code>, <code>full_name</code>, optionally{' '}
-                            <code>class_name</code> (matched by name within the chosen school) and{' '}
-                            <code>is_active</code> (true/false, defaults to true). Re-uploading with the same
-                            admission numbers updates those students instead of duplicating them.
-                        </p>
+                        <div className="text-muted-foreground space-y-2 text-sm">
+                            <p>
+                                Columns: <code>admission_number</code>, <code>full_name</code>, and optionally <code>grade</code> and{' '}
+                                <code>stream</code> (for example Grade 4 and Blue), and <code>is_active</code> (true/false, defaults to true).
+                            </p>
+                            <p>
+                                Each grade and stream becomes a class named "Grade 4 Blue", created for you if the school does not have it yet, so reports can
+                                compare grades. To use a class that already exists, you can instead give its exact name in a <code>class_name</code> column.
+                                Re-uploading with the same admission numbers updates those students instead of duplicating them.
+                            </p>
+                            <p>
+                                <a href="/samples/students-sample.csv" download className="text-foreground font-medium underline">
+                                    Download a sample file with 5 students
+                                </a>
+                                . Open it in Excel, replace the rows with your own, and keep the first line. It uses Kenya CBC grades (Grade 4, Grade 5) with
+                                Blue and Green streams.
+                            </p>
+                            <p>
+                                <strong>Tip:</strong> on the Classes page, use "Seed Kenya (CBC) classes" with the streams "Blue, Green" first. The sample's
+                                students then land in those classes instead of creating new ones.
+                            </p>
+                        </div>
 
                         <Form {...StudentController.import.form()} resetOnSuccess className="flex flex-wrap items-end gap-3">
                             {({ processing, errors }) => (
