@@ -74,6 +74,13 @@ class User extends Authenticatable implements PasskeyUser
             ->exists();
     }
 
+    /** Administrator of any organization or school, i.e. allowed into the admin panel at all. */
+    public function isAnyAdministrator(): bool
+    {
+        return $this->isOrganizationAdministrator()
+            || $this->schools()->wherePivot('role', 'administrator')->exists();
+    }
+
     public function isSchoolAdministrator(int $schoolId): bool
     {
         $organizationId = School::query()->whereKey($schoolId)->value('organization_id');

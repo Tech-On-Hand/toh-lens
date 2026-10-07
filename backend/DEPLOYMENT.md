@@ -292,6 +292,17 @@ php artisan klas:check
 
 This is a built-in go/no-go check written specifically for this — it verifies `APP_KEY` is set, debug mode is off, `APP_URL` is real HTTPS, the database connects and migrations are current, Redis is reachable, a queue worker and Reverb are actually listening (not just configured), real mail credentials are set (not `log`), the scheduler has run in the last 3 minutes (proving cron is wired up), and that at least one school exists. Fix every `FAIL`; read every `WARN`.
 
+## Teacher app download
+
+Teachers who sign in to the website (and are not administrators) see a "Download the Teacher app for Windows" button on their dashboard. The installer is **not** in git or in `public/`; it is served only to signed-in users from `storage/app/private/downloads/`. After building it (`cd teacher; npm run tauri build`), copy it to the server:
+
+```bash
+scp "teacher/src-tauri/target/release/bundle/nsis/TOH Klas Teacher_0.1.0_x64-setup.exe" \
+    deploy@your-server:/var/www/toh-lens/backend/storage/app/private/downloads/
+```
+
+The file name must start with `TOH Klas Teacher` and end in `.exe` or `.msi`; if several are there, the newest wins. Until one is uploaded the button is hidden and the dashboard tells teachers to ask their administrator. The installers are unsigned, so Windows SmartScreen shows an "unknown publisher" warning (More info, then Run anyway).
+
 ## Pointing the other apps at this server
 
 Once the backend is live, each of the other three apps needs to know its URL:
