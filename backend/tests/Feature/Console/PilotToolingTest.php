@@ -70,6 +70,16 @@ class PilotToolingTest extends TestCase
         $this->assertSame(1, User::where('email', $teacher->email)->count());
     }
 
+    public function test_bootstrap_only_makes_an_organization_administrator_when_asked(): void
+    {
+        $this->artisan('klas:bootstrap', ['organization' => 'Org', 'school' => 'School', 'admin_email' => 'a@b.example'])->assertSuccessful();
+        $organization = Organization::firstWhere('slug', 'org');
+        $this->assertFalse(User::first()->isOrganizationAdministrator($organization->id));
+
+        $this->artisan('klas:bootstrap', ['organization' => 'Org', 'school' => 'School', 'admin_email' => 'a@b.example', '--organization-admin' => true])->assertSuccessful();
+        $this->assertTrue(User::first()->isOrganizationAdministrator($organization->id));
+    }
+
     public function test_bootstrap_rejects_a_bad_email(): void
     {
         $this->artisan('klas:bootstrap', ['organization' => 'Org', 'school' => 'School', 'admin_email' => 'not-an-email'])->assertFailed();

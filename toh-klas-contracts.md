@@ -8,7 +8,7 @@ All `/api/v1` responses use `{ "success": true, "data": ... }` or `{ "success": 
 |---|---|---|---|
 | POST | `/api/v1/auth/login` | Public, throttled | Exchange staff email/password for a scoped teacher token |
 | POST | `/api/v1/auth/logout` | Teacher | Revoke current teacher token |
-| POST | `/api/v1/invitations/accept` | Public, throttled | Accept an expiring staff invitation |
+| POST | `/api/v1/invitations/accept` | Public, throttled | Accept an expiring staff invitation (people use the web page `/invitations/accept?token=...`) |
 | POST | `/api/v1/devices/enroll` | Public, throttled | Exchange a one-time enrollment code for a device token |
 | GET | `/api/v1/device/configuration` | Active device | Read current device assignment/version |
 | POST | `/api/v1/device/heartbeat` | Active device | Update presence and retrieve configuration |
@@ -311,7 +311,7 @@ The Teacher app shows both to administrators as "Audit" and "Fleet" buttons. The
 The step-by-step is `provisioning/pilot-rollout.md`. What the tooling is:
 
 **Server (artisan).**
-- `php artisan klas:bootstrap "<organization>" "<school>" <admin_email> [--admin-name=] [--classroom=...]` creates the organization, school, classrooms and a school administrator (a new account gets a random password, printed once). Idempotent.
+- `php artisan klas:bootstrap "<organization>" "<school>" <admin_email> [--admin-name=] [--classroom=...] [--organization-admin]` creates the organization, school, classrooms and a school administrator (a new account gets a random password, printed once). Idempotent.
 - `php artisan klas:enrollment-codes <classroom_id> [count] --as=<admin_email> [--minutes=1440] [--json]` issues up to 200 one-time codes at once, valid up to 7 days (the web admin's are 30 minutes). `--as` must be an administrator of that classroom's school; it is recorded as the issuer.
 - `php artisan klas:check` reports PASS / WARN / FAIL for the environment (key, production mode, debug, https and a non-localhost `APP_URL`), database and pending migrations, Redis, queue, Reverb, mail, and whether the **scheduler** is really running (a heartbeat the scheduler stamps every minute), and exits non-zero on a FAIL.
 

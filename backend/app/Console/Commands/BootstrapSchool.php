@@ -18,7 +18,8 @@ class BootstrapSchool extends Command
         {school : School name}
         {admin_email : Email of the school administrator to create or reuse}
         {--admin-name= : Name for a new administrator (default: the part of the email before the @)}
-        {--classroom=* : A classroom to create (repeat for several)}';
+        {--classroom=* : A classroom to create (repeat for several)}
+        {--organization-admin : Also make the administrator an administrator of the whole organization (needed to invite staff)}';
 
     protected $description = 'Set up a school for a pilot: its organization, classrooms and first administrator. Safe to run again.';
 
@@ -54,6 +55,9 @@ class BootstrapSchool extends Command
             $admin->forceFill(['email_verified_at' => now()])->save();
         }
         $school->users()->syncWithoutDetaching([$admin->id => ['role' => 'administrator']]);
+        if ($this->option('organization-admin')) {
+            $admin->organizations()->syncWithoutDetaching([$organization->id => ['role' => 'administrator']]);
+        }
 
         $this->components->info("Organization \"{$organization->name}\" (#{$organization->id}), school \"{$school->name}\" (#{$school->id}).");
         foreach ($classrooms as $classroom) {
