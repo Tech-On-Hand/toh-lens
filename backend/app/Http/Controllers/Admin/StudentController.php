@@ -81,8 +81,10 @@ class StudentController extends Controller
      * updates existing rows instead of duplicating them.
      *
      * Expected columns (header row required): admission_number, full_name,
-     * class_name (optional — matched by name within the chosen school),
-     * is_active (optional, defaults to true).
+     * then optionally grade and stream (a class is named "<grade> <stream>", e.g.
+     * "Grade 4 Blue", and is created if the school does not have it yet), or
+     * class_name (an existing class, matched by name within the chosen school),
+     * and is_active (defaults to true).
      */
     public function import(Request $request): RedirectResponse
     {
@@ -110,6 +112,7 @@ class StudentController extends Controller
 
         $created = 0;
         $updated = 0;
+        $classesCreated = 0;
         $issues = [];
         $rowNumber = 1;
 
@@ -134,9 +137,32 @@ class StudentController extends Controller
             }
 
             $className = trim((string) ($data['class_name'] ?? ''));
+            $grade = trim((string) ($data['grade'] ?? ''));
+            $stream = trim((string) ($data['stream'] ?? ''));
+            if ($className === '' && $grade !== '') {
+                $className = SchoolClass::composeName($grade, $stream);
+            }
+            if ($grade === '' && $stream !== '' && $className === '') {
+                $issues[] = "Row {$rowNumber}: a stream (\"{$stream}\") needs a grade — saved without a class.";
+            }
+
             $classMatch = $className !== '' ? $classesByName->get(Str::lower($className)) : null;
             if ($className !== '' && ! $classMatch) {
-                $issues[] = "Row {$rowNumber}: class \"{$className}\" not found in this school — saved without a class.";
+                if ($grade !== '') {
+                    $classMatch = SchoolClass::create([
+                        'school_id' => $schoolId,
+                        'name' => $className,
+                        'grade' => $grade,
+                        'stream' => $stream !== '' ? $stream : null,
+                    ]);
+                    $classesByName->put(Str::lower($className), $classMatch);
+                    $classesCreated++;
+                } else {
+                    $issues[] = "Row {$rowNumber}: class \"{$className}\" not found in this school — saved without a class.";
+                }
+            } elseif ($classMatch && $grade !== '' && $classMatch->grade === null) {
+                // A class made before grades existed: fill in what the file knows, never overwrite.
+                $classMatch->update(['grade' => $grade, 'stream' => $classMatch->stream ?? ($stream !== '' ? $stream : null)]);
             }
 
             $isActive = true;
@@ -172,6 +198,9 @@ class StudentController extends Controller
         fclose($handle);
 
         $summary = "Import complete: {$created} created, {$updated} updated";
+        if ($classesCreated > 0) {
+            $summary .= ", {$classesCreated} class(es) created";
+        }
         if (count($issues) > 0) {
             $summary .= ', '.count($issues).' issue(s) — see below.';
         }

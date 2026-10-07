@@ -7,6 +7,8 @@ export type ClassOption = {
     id: number;
     name: string;
     school_id: number;
+    grade?: string | null;
+    stream?: string | null;
 };
 
 export type OrganizationOption = {
@@ -27,6 +29,8 @@ export type School = {
 export type SchoolClassRow = {
     id: number;
     name: string;
+    grade: string | null;
+    stream: string | null;
     school: SchoolOption | null;
     teacher: { id: number; name: string } | null;
     students_count: number;
@@ -53,12 +57,25 @@ export type NoUsageStudent = {
     full_name: string;
 };
 
-export type ClassReport = {
-    class: { id: number; name: string; school_name: string | null };
+export type GradeOption = {
+    school_id: number;
+    school_name: string | null;
+    grade: string;
+    classes_count: number;
+};
+
+export type ReportSummary = {
     total_students: number;
     active_students: number;
     average_duration_minutes: number | null;
     total_sessions: number;
+};
+
+export type ClassReport = ReportSummary & {
+    /** "grade" adds up every class of a grade; `breakdown` then has one row per class. */
+    scope: 'class' | 'grade';
+    class: { id: number | null; name: string; school_name: string | null };
+    breakdown: (ReportSummary & { id: number; name: string; stream: string | null })[];
     no_usage_students: NoUsageStudent[];
 };
 

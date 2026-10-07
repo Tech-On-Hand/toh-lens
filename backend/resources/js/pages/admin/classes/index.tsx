@@ -1,5 +1,6 @@
 import { Form, Head } from '@inertiajs/react';
-import { GraduationCap, Plus, Trash2 } from 'lucide-react';
+import { GraduationCap, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import SchoolClassController from '@/actions/App/Http/Controllers/Admin/SchoolClassController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
@@ -21,6 +22,9 @@ export default function ClassesIndex({
     schools: SchoolOption[];
     teachers: Teacher[];
 }) {
+    // Which row is open for editing its grade and stream (one at a time).
+    const [editingId, setEditingId] = useState<number | null>(null);
+
     return (
         <>
             <Head title="Classes" />
@@ -32,8 +36,12 @@ export default function ClassesIndex({
                     <CardHeader>
                         <CardTitle>Add a class</CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <Form {...SchoolClassController.store.form()} resetOnSuccess className="flex flex-wrap items-end gap-3">
+                    <CardContent className="space-y-3">
+                        <p className="text-muted-foreground text-sm">
+                            Give the <strong>grade</strong> and the <strong>stream</strong> (such as a colour) separately, for example Grade 4 and Blue. The class is
+                            named "Grade 4 Blue", and reports can then add up every stream of Grade 4 together.
+                        </p>
+                        <Form {...SchoolClassController.store.form()} resetOnSuccess className="flex flex-wrap items-start gap-3">
                             {({ processing, errors }) => (
                                 <>
                                     <div className="grid gap-2">
@@ -52,8 +60,20 @@ export default function ClassesIndex({
                                     </div>
 
                                     <div className="grid gap-2">
-                                        <Label htmlFor="name">Name</Label>
-                                        <Input id="name" name="name" placeholder="Grade 4 Blue" required />
+                                        <Label htmlFor="grade">Grade</Label>
+                                        <Input id="grade" name="grade" placeholder="Grade 4" />
+                                        <InputError message={errors.grade} />
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="stream">Stream (optional)</Label>
+                                        <Input id="stream" name="stream" placeholder="Blue" />
+                                        <InputError message={errors.stream} />
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="name">Name (optional)</Label>
+                                        <Input id="name" name="name" placeholder="Built from grade + stream" />
                                         <InputError message={errors.name} />
                                     </div>
 
@@ -70,7 +90,7 @@ export default function ClassesIndex({
                                         <InputError message={errors.teacher_id} />
                                     </div>
 
-                                    <Button disabled={processing}><Plus /> Add class</Button>
+                                    <Button className="mt-6" disabled={processing}><Plus /> Add class</Button>
                                 </>
                             )}
                         </Form>
@@ -82,6 +102,8 @@ export default function ClassesIndex({
                         <thead className="bg-muted/50 text-muted-foreground">
                             <tr>
                                 <th className="px-4 py-2 font-medium">Name</th>
+                                <th className="px-4 py-2 font-medium">Grade</th>
+                                <th className="px-4 py-2 font-medium">Stream</th>
                                 <th className="px-4 py-2 font-medium">School</th>
                                 <th className="px-4 py-2 font-medium">Teacher</th>
                                 <th className="px-4 py-2 font-medium">Students</th>
@@ -93,33 +115,67 @@ export default function ClassesIndex({
                             {classes.map((schoolClass) => (
                                 <tr key={schoolClass.id} className="border-t">
                                     <td className="px-4 py-2 font-medium">{schoolClass.name}</td>
+                                    {editingId === schoolClass.id ? (
+                                        <td colSpan={2} className="px-4 py-2">
+                                            <Form
+                                                {...SchoolClassController.update.form(schoolClass.id)}
+                                                onSuccess={() => setEditingId(null)}
+                                                className="flex flex-wrap items-start gap-2"
+                                            >
+                                                {({ processing, errors }) => (
+                                                    <>
+                                                        <div className="grid gap-1">
+                                                            <Input name="grade" defaultValue={schoolClass.grade ?? ''} placeholder="Grade 4" aria-label="Grade" className="h-8 w-32" autoFocus />
+                                                            <InputError message={errors.grade} />
+                                                        </div>
+                                                        <div className="grid gap-1">
+                                                            <Input name="stream" defaultValue={schoolClass.stream ?? ''} placeholder="Blue" aria-label="Stream" className="h-8 w-28" />
+                                                            <InputError message={errors.stream} />
+                                                        </div>
+                                                        <Button size="sm" disabled={processing}>Save</Button>
+                                                        <Button type="button" size="sm" variant="ghost" onClick={() => setEditingId(null)}>Cancel</Button>
+                                                    </>
+                                                )}
+                                            </Form>
+                                        </td>
+                                    ) : (
+                                        <>
+                                            <td className="px-4 py-2">{schoolClass.grade ?? <span className="text-muted-foreground">Not set</span>}</td>
+                                            <td className="px-4 py-2">{schoolClass.stream ?? '—'}</td>
+                                        </>
+                                    )}
                                     <td className="px-4 py-2">{schoolClass.school?.name ?? '—'}</td>
                                     <td className="px-4 py-2">{schoolClass.teacher?.name ?? '—'}</td>
                                     <td className="px-4 py-2">{schoolClass.students_count}</td>
                                     <td className="px-4 py-2">{schoolClass.computers_count}</td>
-                                    <td className="px-4 py-2 text-right">
-                                        <Form {...SchoolClassController.destroy.form(schoolClass.id)}>
-                                            {({ processing }) => (
-                                                <Button
-                                                    variant="destructive"
-                                                    size="sm"
-                                                    disabled={processing}
-                                                    onClick={(e) => {
-                                                        if (!confirm(`Delete "${schoolClass.name}"?`)) {
-                                                            e.preventDefault();
-                                                        }
-                                                    }}
-                                                >
-                                                    <Trash2 /> Delete
-                                                </Button>
-                                            )}
-                                        </Form>
+                                    <td className="px-4 py-2">
+                                        <div className="flex justify-end gap-2">
+                                            <Button type="button" variant="outline" size="sm" onClick={() => setEditingId(schoolClass.id)}>
+                                                <Pencil /> Grade / stream
+                                            </Button>
+                                            <Form {...SchoolClassController.destroy.form(schoolClass.id)}>
+                                                {({ processing }) => (
+                                                    <Button
+                                                        variant="destructive"
+                                                        size="sm"
+                                                        disabled={processing}
+                                                        onClick={(e) => {
+                                                            if (!confirm(`Delete "${schoolClass.name}"?`)) {
+                                                                e.preventDefault();
+                                                            }
+                                                        }}
+                                                    >
+                                                        <Trash2 /> Delete
+                                                    </Button>
+                                                )}
+                                            </Form>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
                             {classes.length === 0 && (
                                 <tr>
-                                    <td colSpan={6} className="text-muted-foreground px-4 py-6 text-center">
+                                    <td colSpan={8} className="text-muted-foreground px-4 py-6 text-center">
                                         No classes yet.
                                     </td>
                                 </tr>
