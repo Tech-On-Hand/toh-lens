@@ -23,7 +23,7 @@ pub async fn device_json(
     if let Some(body) = body {
         request = request.json(&body);
     }
-    let response = request.send().await.map_err(|e| e.to_string())?;
+    let response = request.send().await.map_err(describe)?;
 
     if !response.status().is_success() {
         return Err(format!("server returned {}", response.status()));
@@ -31,7 +31,7 @@ pub async fn device_json(
     response
         .json::<ApiEnvelope<serde_json::Value>>()
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(describe)?
         .data
         .ok_or_else(|| "The server returned an invalid response.".into())
 }
@@ -46,7 +46,7 @@ pub async fn enroll_device(
         .json(&request)
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(describe)?;
 
     if !response.status().is_success() {
         return Err("The enrollment code is invalid, expired, or already used.".into());
@@ -55,7 +55,7 @@ pub async fn enroll_device(
     response
         .json::<ApiEnvelope<EnrollmentData>>()
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(describe)?
         .data
         .ok_or_else(|| "The server returned an invalid enrollment response.".into())
 }
@@ -72,7 +72,7 @@ pub async fn heartbeat(
         .json(&request)
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(describe)?;
 
     if !response.status().is_success() {
         return Err(format!("server returned {}", response.status()));
@@ -81,7 +81,7 @@ pub async fn heartbeat(
     response
         .json::<ApiEnvelope<HeartbeatData>>()
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(describe)?
         .data
         .ok_or_else(|| "The server returned an invalid heartbeat response.".into())
 }
@@ -108,13 +108,13 @@ pub async fn fetch_computer_me(http: &reqwest::Client, base_url: &str, token: &s
         .bearer_auth(token)
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(describe)?;
 
     if !response.status().is_success() {
         return Err(format!("server returned {}", response.status()));
     }
 
-    response.json::<ComputerMeResponse>().await.map_err(|e| e.to_string())
+    response.json::<ComputerMeResponse>().await.map_err(describe)
 }
 
 pub async fn fetch_roster(http: &reqwest::Client, base_url: &str, token: &str) -> Result<RosterResponse, String> {
@@ -124,7 +124,7 @@ pub async fn fetch_roster(http: &reqwest::Client, base_url: &str, token: &str) -
         .bearer_auth(token)
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(describe)?;
 
     if !response.status().is_success() {
         return Err(format!("server returned {}", response.status()));
@@ -133,7 +133,7 @@ pub async fn fetch_roster(http: &reqwest::Client, base_url: &str, token: &str) -
     response
         .json::<ApiEnvelope<RosterResponse>>()
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(describe)?
         .data
         .ok_or_else(|| "The server returned an invalid roster response.".into())
 }
@@ -153,7 +153,7 @@ pub async fn post_sessions_sync(
         .json(&body)
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(describe)?;
 
     if !response.status().is_success() {
         return Err(format!("server returned {}", response.status()));
@@ -167,7 +167,7 @@ pub async fn post_sessions_sync(
     let data = response
         .json::<ApiEnvelope<SyncData>>()
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(describe)?
         .data
         .ok_or_else(|| "The server returned an invalid sync response.".to_string())?;
 
@@ -212,7 +212,7 @@ pub async fn fetch_commands(
         .bearer_auth(token)
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(describe)?;
 
     if !response.status().is_success() {
         return Err(format!("server returned {}", response.status()));
@@ -221,7 +221,7 @@ pub async fn fetch_commands(
     response
         .json::<ApiEnvelope<CommandsData>>()
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(describe)?
         .data
         .map(|data| data.commands)
         .ok_or_else(|| "The server returned an invalid commands response.".into())
@@ -241,7 +241,7 @@ pub async fn post_command_result(
         .json(&serde_json::json!({ "status": status, "result": result }))
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(describe)?;
 
     if response.status().is_success() {
         Ok(())
@@ -262,7 +262,7 @@ pub async fn fetch_policy(
         request = request.query(&[("known", version)]);
     }
 
-    let response = request.send().await.map_err(|e| e.to_string())?;
+    let response = request.send().await.map_err(describe)?;
     if !response.status().is_success() {
         return Err(format!("server returned {}", response.status()));
     }
@@ -270,7 +270,7 @@ pub async fn fetch_policy(
     response
         .json::<ApiEnvelope<crate::policy_sync::PolicyDto>>()
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(describe)?
         .data
         .ok_or_else(|| "The server returned an invalid policy response.".into())
 }
@@ -287,7 +287,7 @@ pub async fn fetch_current_screen_session(
         .query(&[("after", after)])
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(describe)?;
 
     if !response.status().is_success() {
         return Err(format!("server returned {}", response.status()));
@@ -301,7 +301,7 @@ pub async fn fetch_current_screen_session(
     response
         .json::<ApiEnvelope<CurrentData>>()
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(describe)?
         .data
         .map(|data| data.session)
         .ok_or_else(|| "The server returned an invalid screen-session response.".into())
@@ -320,7 +320,7 @@ pub async fn answer_screen_session(
         .json(&serde_json::json!({ "answer": answer }))
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(describe)?;
 
     if response.status().is_success() {
         Ok(())
@@ -342,7 +342,7 @@ pub async fn post_screen_session_candidate(
         .json(&serde_json::json!({ "candidates": [candidate] }))
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(describe)?;
 
     if response.status().is_success() {
         Ok(())
@@ -362,7 +362,7 @@ pub async fn fetch_broadcast_status(http: &reqwest::Client, base_url: &str, toke
         .query(&[("after", after)])
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(describe)?;
 
     if !response.status().is_success() {
         return Err(format!("server returned {}", response.status()));
@@ -370,7 +370,7 @@ pub async fn fetch_broadcast_status(http: &reqwest::Client, base_url: &str, toke
     response
         .json::<ApiEnvelope<serde_json::Value>>()
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(describe)?
         .data
         .ok_or_else(|| "The server returned an invalid broadcast response.".into())
 }
@@ -382,7 +382,7 @@ pub async fn join_broadcast(http: &reqwest::Client, base_url: &str, token: &str,
         .json(&serde_json::json!({ "offer": offer }))
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(describe)?;
 
     if !response.status().is_success() {
         return Err(format!("server returned {}", response.status()));
@@ -390,7 +390,7 @@ pub async fn join_broadcast(http: &reqwest::Client, base_url: &str, token: &str,
     response
         .json::<ApiEnvelope<serde_json::Value>>()
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(describe)?
         .data
         .ok_or_else(|| "The server returned an invalid join response.".into())
 }
@@ -404,7 +404,7 @@ pub async fn post_broadcast_target_candidate(http: &reqwest::Client, base_url: &
         .json(&serde_json::json!({ "candidates": [candidate] }))
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(describe)?;
 
     if response.status().is_success() {
         Ok(())
@@ -421,7 +421,7 @@ pub async fn fetch_outgoing_broadcast(http: &reqwest::Client, base_url: &str, to
         .bearer_auth(token)
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(describe)?;
 
     if !response.status().is_success() {
         return Err(format!("server returned {}", response.status()));
@@ -429,7 +429,7 @@ pub async fn fetch_outgoing_broadcast(http: &reqwest::Client, base_url: &str, to
     response
         .json::<ApiEnvelope<serde_json::Value>>()
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(describe)?
         .data
         .ok_or_else(|| "The server returned an invalid broadcast response.".into())
 }
@@ -441,11 +441,25 @@ pub async fn answer_broadcast_target(http: &reqwest::Client, base_url: &str, tok
         .json(&serde_json::json!({ "answer": answer }))
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(describe)?;
 
     if response.status().is_success() {
         Ok(())
     } else {
         Err(format!("server returned {}", response.status()))
     }
+}
+
+/// reqwest's own message is only "error sending request for url (...)". The part that
+/// says what went wrong (DNS, refused connection, bad certificate, timeout) is further
+/// down the source chain, so include it.
+fn describe(e: reqwest::Error) -> String {
+    let mut message = e.to_string();
+    let mut source = std::error::Error::source(&e);
+    while let Some(cause) = source {
+        message.push_str(": ");
+        message.push_str(&cause.to_string());
+        source = cause.source();
+    }
+    message
 }
