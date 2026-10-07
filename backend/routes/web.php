@@ -8,6 +8,8 @@ use App\Http\Controllers\Admin\SchoolClassController;
 use App\Http\Controllers\Admin\SchoolController;
 use App\Http\Controllers\Admin\StudentController;
 use App\Http\Controllers\Auth\AcceptInvitationController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\TeacherInstallerController;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'welcome')->name('home');
@@ -17,7 +19,8 @@ Route::get('invitations/accept', [AcceptInvitationController::class, 'show'])->n
 Route::post('invitations/accept', [AcceptInvitationController::class, 'store'])->middleware('throttle:5,1')->name('invitations.accept.store');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::inertia('dashboard', 'dashboard')->name('dashboard');
+    Route::get('dashboard', DashboardController::class)->name('dashboard');
+    Route::get('downloads/teacher', TeacherInstallerController::class)->name('downloads.teacher');
 
     Route::prefix('admin')->name('admin.')->middleware('admin.access')->group(function () {
         Route::resource('schools', SchoolController::class)->only(['index', 'store', 'destroy']);

@@ -19,10 +19,8 @@ class EnsureIsAdministrator
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
-        $isAdministrator = $user instanceof User
-            && ($user->isOrganizationAdministrator() || $user->schools()->wherePivot('role', 'administrator')->exists());
 
-        abort_unless($isAdministrator, 403);
+        abort_unless($user instanceof User && $user->isAnyAdministrator(), 403);
 
         return $next($request);
     }

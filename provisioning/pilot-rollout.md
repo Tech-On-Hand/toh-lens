@@ -46,7 +46,7 @@ This creates the organization, school, classrooms and the first school administr
 | Student kiosk | `cd kiosk; npm run tauri:build:kiosk` | `src-tauri/target/release/bundle/msi/*.msi` (use the **MSI**: it installs per machine) |
 | Native messaging host | `cd browser-host; cargo build --release` | `target/release/toh-klas-native-host.exe` |
 | Browser extension | see `browser-integration.md` | An extension id. Standalone (not domain-joined) PCs can only force-install a store-published extension, so publish it (an unlisted item is fine) and use the id the store gives you, or load it unpacked while testing. |
-| Teacher app | `cd teacher; npm run tauri build` | Installer for the teachers' own computers. |
+| Teacher app | `cd teacher; npm run tauri build` | Installer for the teachers' own computers (`src-tauri/target/release/bundle/nsis/*-setup.exe`). Copy it to the server so teachers can download it from their dashboard: see "Teacher app download" in `backend/DEPLOYMENT.md`. |
 
 ## 4. Prove it on one computer
 

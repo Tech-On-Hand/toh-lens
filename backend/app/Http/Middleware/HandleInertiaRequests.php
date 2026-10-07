@@ -40,6 +40,8 @@ class HandleInertiaRequests extends Middleware
             'name' => config('app.name'),
             'auth' => [
                 'user' => $request->user(),
+                // Lets the frontend hide the admin panel from teachers, who use the Teacher app.
+                'is_administrator' => (bool) $request->user()?->isAnyAdministrator(),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
