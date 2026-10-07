@@ -7,9 +7,14 @@ use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SchoolClassController;
 use App\Http\Controllers\Admin\SchoolController;
 use App\Http\Controllers\Admin\StudentController;
+use App\Http\Controllers\Auth\AcceptInvitationController;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'welcome')->name('home');
+
+// Public: a teacher redeems the token an administrator gave them.
+Route::get('invitations/accept', [AcceptInvitationController::class, 'show'])->name('invitations.accept');
+Route::post('invitations/accept', [AcceptInvitationController::class, 'store'])->middleware('throttle:5,1')->name('invitations.accept.store');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');

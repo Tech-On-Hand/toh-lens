@@ -18,7 +18,7 @@ How to take TOH Klas from a built repository to a working pilot in one school. W
 
 ## 1. Server
 
-1. Deploy `backend/`, copy `.env.example` to `.env` and set at least: `APP_ENV=production`, `APP_DEBUG=false`, `APP_URL=https://<your server>`, the database, Redis, `QUEUE_CONNECTION=redis`, `BROADCAST_CONNECTION=reverb` with **your own** `REVERB_APP_ID/KEY/SECRET`, and a real `MAIL_MAILER` (staff invitations are emails). Optionally `TOH_ACTIVITY_RETENTION_DAYS` (default 90).
+1. Deploy `backend/`, copy `.env.example` to `.env` and set at least: `APP_ENV=production`, `APP_DEBUG=false`, `APP_URL=https://<your server>`, the database, Redis, `QUEUE_CONNECTION=redis`, `BROADCAST_CONNECTION=reverb` with **your own** `REVERB_APP_ID/KEY/SECRET`, and a real `MAIL_MAILER` (needed for password-reset emails; staff invitations are not emailed, the administrator sends the link shown after creating one). Optionally `TOH_ACTIVITY_RETENTION_DAYS` (default 90).
 2. `php artisan key:generate`, then `php artisan migrate --force`.
 3. Keep three things running: a web server for `public/`, `php artisan queue:work`, and `php artisan reverb:start`. Add one cron entry that runs `php artisan schedule:run` every minute. Without the scheduler computers are never marked offline and screen sessions never expire.
 4. Run the readiness check and fix every **FAIL**; read every **WARN**:

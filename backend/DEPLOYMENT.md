@@ -277,8 +277,10 @@ Nothing exists yet after a fresh deploy — no organization, no school, no admin
 
 ```bash
 php artisan klas:bootstrap "Tech On Hand" "Demo Primary School" admin@example.com \
-    --classroom="Computer Lab" --classroom="Room 1"
+    --classroom="Computer Lab" --classroom="Room 1" --organization-admin
 ```
+
+`--organization-admin` also makes this account an administrator of the whole organization, which is required to invite staff (a school administrator alone gets a 403 on invitations) and gives access to every school in it. Leave it off for a school head who should only run their own school.
 
 Safe to run again (it reuses an existing org/school/admin by name/email rather than duplicating). If the admin account is new, it prints a one-time generated password — there's no other way to retrieve it, so capture it before moving on.
 
