@@ -3,6 +3,7 @@ import { HelpButton } from "../components/HelpButton";
 import { NumericKeypad } from "../components/NumericKeypad";
 import { RosterFreshnessNote } from "../components/RosterFreshnessNote";
 import { ScreenWatchIndicator } from "../components/ScreenWatchIndicator";
+import { SyncRosterLink } from "../components/SyncRosterLink";
 import { SyncStatusBadge } from "../components/SyncStatusBadge";
 import { commandErrorMessage, recordLogin } from "../lib/commands";
 import type { LoginSessionRecord } from "../types";
@@ -54,6 +55,7 @@ export function KeypadScreen({ onLogin, notice }: KeypadScreenProps) {
 
       <RosterFreshnessNote />
       <HelpButton />
+      <SyncRosterLink />
     </div>
   );
 }
