@@ -1,15 +1,16 @@
 import { Form, Head } from '@inertiajs/react';
-import { GraduationCap, Pencil, Plus, Trash2 } from 'lucide-react';
+import { GraduationCap, Pencil, Plus, Sprout, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import SchoolClassController from '@/actions/App/Http/Controllers/Admin/SchoolClassController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { NativeSelect } from '@/components/native-select';
+import { SeedCbcPanel } from '@/components/seed-cbc-panel';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { SchoolClassRow, SchoolOption } from '@/types';
+import type { CbcLevel, SchoolClassRow, SchoolOption } from '@/types';
 
 type Teacher = { id: number; name: string };
 
@@ -17,20 +18,32 @@ export default function ClassesIndex({
     classes,
     schools,
     teachers,
+    cbcLevels,
 }: {
     classes: SchoolClassRow[];
     schools: SchoolOption[];
     teachers: Teacher[];
+    cbcLevels: CbcLevel[];
 }) {
     // Which row is open for editing its grade and stream (one at a time).
     const [editingId, setEditingId] = useState<number | null>(null);
+    const [seeding, setSeeding] = useState(false);
 
     return (
         <>
             <Head title="Classes" />
 
             <div className="space-y-6 p-4">
-                <Heading title="Classes" description="Groups students and computers under a school and (optionally) a teacher." icon={GraduationCap} accent="--toh-purple" />
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <Heading title="Classes" description="Groups students and computers under a school and (optionally) a teacher." icon={GraduationCap} accent="--toh-purple" />
+                    {!seeding && schools.length > 0 && (
+                        <Button type="button" variant="outline" onClick={() => setSeeding(true)}>
+                            <Sprout /> Seed Kenya (CBC) classes
+                        </Button>
+                    )}
+                </div>
+
+                {seeding && <SeedCbcPanel schools={schools} classes={classes} levels={cbcLevels} onDone={() => setSeeding(false)} />}
 
                 <Card>
                     <CardHeader>

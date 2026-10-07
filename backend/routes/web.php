@@ -24,6 +24,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::prefix('admin')->name('admin.')->middleware('admin.access')->group(function () {
         Route::resource('schools', SchoolController::class)->only(['index', 'store', 'destroy']);
+        Route::post('classes/seed-cbc', [SchoolClassController::class, 'seedCbc'])->name('classes.seed-cbc');
         Route::resource('classes', SchoolClassController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::resource('students', StudentController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::post('students/import', [StudentController::class, 'import'])->name('students.import');

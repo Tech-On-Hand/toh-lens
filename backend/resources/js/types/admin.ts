@@ -104,3 +104,11 @@ export type Computer = {
     /** When this computer's current token last authenticated a request. */
     token_last_used_at: string | null;
 };
+
+export type CbcLevel = {
+    key: string;
+    label: string;
+    grades: string[];
+    /** Ticked when the seed panel opens. */
+    default: boolean;
+};

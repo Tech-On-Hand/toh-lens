@@ -144,7 +144,12 @@ export default function StudentsIndex({
                                 <a href="/samples/students-sample.csv" download className="text-foreground font-medium underline">
                                     Download a sample file with 5 students
                                 </a>
-                                . Open it in Excel, replace the rows with your own, and keep the first line.
+                                . Open it in Excel, replace the rows with your own, and keep the first line. It uses Kenya CBC grades (Grade 4, Grade 5) with
+                                Blue and Green streams.
+                            </p>
+                            <p>
+                                <strong>Tip:</strong> on the Classes page, use "Seed Kenya (CBC) classes" with the streams "Blue, Green" first. The sample's
+                                students then land in those classes instead of creating new ones.
                             </p>
                         </div>
 
